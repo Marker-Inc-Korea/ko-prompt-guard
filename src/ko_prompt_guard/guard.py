@@ -28,7 +28,7 @@ class Guard:
 
         violations: list[Violation] = list(patterns.scan(normalized))
         # 단일 스크립트 외국어 literal lexicon 은 '폴딩 이전' 텍스트로 한 번 더 스캔한다.
-        # homoglyph 단일 스크립트 폴딩이 'систем'→'cиctem' 처럼 키릴 토큰을
+        # homoglyph 단일 스크립트 폴딩(PG-2)이 'систем'→'cиctem' 처럼 키릴 토큰을
         # 부분 변형해 literal 매칭을 깨기 때문. 폴딩 끈 정규화는 멱등하고 부작용이 없다.
         if policy.fold_homoglyphs:
             pre_fold, _ = normalize(text, policy.model_copy(update={"fold_homoglyphs": False}))

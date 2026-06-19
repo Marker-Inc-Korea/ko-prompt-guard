@@ -25,7 +25,7 @@ CYRILLIC_TO_LATIN: dict[str, str] = {
 # 예: 'iɡnore'(U+0261)·'disreɡard'는 전부 라틴이라 mixed 판정에 안 걸려 통과했다.
 # ★ ı(U+0131 터키어)·ł(U+0142 폴란드어)은 실제 언어의 정상 글자라 여기서 빼고
 #   mixed-script 게이트 뒤로 옮긴다(아래 LATIN_CONFUSABLE_GATED) — 'kırmızı'·폴란드어
-#   단어가 통째로 망가지는 과탐 방지.
+#   단어가 통째로 망가지는 과탐 방지(PG-4).
 LATIN_CONFUSABLE: dict[str, str] = {
     "ɡ": "g", "ɢ": "g", "ɩ": "i", "ɪ": "i", "ɫ": "l",
     "ɴ": "n", "ʀ": "r", "ᴄ": "c", "ᴇ": "e", "ᴏ": "o", "ᴘ": "p", "ʟ": "l",
@@ -136,7 +136,7 @@ def _is_disguise_doc(text: str) -> bool:
 
 
 def _fold_single_script(token: str, *, disguise_doc: bool) -> str:
-    """단일 스크립트 키릴/그리스 토큰을 라틴 매핑 비율이 높을 때만 폴딩.
+    """단일 스크립트 키릴/그리스 토큰을 라틴 매핑 비율이 높을 때만 폴딩(PG-2).
 
     짧은(3자) 토큰은 위장 문서(``disguise_doc``)일 때만 폴딩 — 정상 러시아어/그리스어
     문장에 우연히 섞인 confusable 단어('как')는 보존한다(과탐 방지).
@@ -161,13 +161,13 @@ def _fold_token(token: str, *, fold_hangul: bool, disguise_doc: bool) -> str:
     if any(c in LATIN_CONFUSABLE for c in token):
         token = "".join(LATIN_CONFUSABLE.get(c, c) for c in token)
     if not is_mixed_script(token):
-        # 단일 스크립트라도 전부-confusable 키릴/그리스 위장이면 폴딩.
+        # 단일 스크립트라도 전부-confusable 키릴/그리스 위장이면 폴딩(PG-2).
         return _fold_single_script(token, disguise_doc=disguise_doc)
     out: list[str] = []
     for ch in token:
         if ch in HOMOGLYPH_TO_LATIN:
             out.append(HOMOGLYPH_TO_LATIN[ch])
-        elif ch in LATIN_CONFUSABLE_GATED:  # ı/ł: mixed-script 일 때만 폴딩
+        elif ch in LATIN_CONFUSABLE_GATED:  # ı/ł: mixed-script 일 때만 폴딩(PG-4)
             out.append(LATIN_CONFUSABLE_GATED[ch])
         elif fold_hangul and ch in HANGUL_TO_LATIN:
             out.append(HANGUL_TO_LATIN[ch])
