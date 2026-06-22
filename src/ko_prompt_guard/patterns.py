@@ -137,6 +137,10 @@ _P1: list[tuple[re.Pattern[str], Severity]] = [
         r"(?:지시|지침|명령)(?:은|는|를|을)?\s*"
         r"[^.\n]{0,8}?"
         r"(?:무시(?!\s*하지|\s*하면|\s*해도\s*되)|잊어|잊고|잊어버려|버리고|버려)", _I), _H),
+    # --- 가짜 채팅 템플릿 구분자 주입(structural injection): 모델 전용 마커가 user 입력에
+    #     등장하면 시스템/역할 경계를 위조하려는 주입이다. 일상 텍스트엔 거의 없어 FP 낮음.
+    (re.compile(r"<\|\s*(?:im_start|im_end|system|assistant|user|endoftext)\s*\|>", _I), _H),
+    (re.compile(r"<<\s*SYS\s*>>|\[/?INST\]", _I), _H),
 ]
 
 _P2: list[tuple[re.Pattern[str], Severity]] = [
@@ -314,6 +318,23 @@ _P3: list[tuple[re.Pattern[str], Severity]] = [
                 r"(?:에서|을|를|이|도)?\s*"
                 r"(?:벗어[나난났]|탈출|풀려|해방)"
                 r"[^.\n]{0,10}?(?:AI|인공지능|모델|답|말|자유|행동)", _I), _M),
+    # --- 거부 억제(refusal suppression): 거절/거부를 막고 답을 강제하는 코어 탈옥 요소.
+    #     refusal 동사(거부/거절) + 억제(말/마/않) + 답변강제(답/대답/말해/그냥/대신) 동반 시만 —
+    #     인간 대상 '이 제안 거부하지 마세요'는 답변강제가 없어 ALLOW(과탐 방지). 양어순 보강.
+    (re.compile(r"(?:거부|거절)\s*(?:하지|치)?\s*(?:말|마|마라|마세요|않)"
+                r"[^.\n]{0,16}?(?:답|대답|응답|말해|알려|해\s*줘|대신|그냥)", _I), _H),
+    (re.compile(r"(?:답해|대답해|응답해|말해|알려\s*줘)[^.\n]{0,12}?(?:거부|거절)\s*(?:하지|치)?\s*(?:말|마|않)", _I), _H),
+    (re.compile(r"(?:못\s*한다|안\s*된다|할\s*수\s*없다|불가능하다)\s*고\s*(?:하지\s*(?:마|말)|말고|말아|답하지)", _I), _H),
+    (re.compile(r"(?:do\s*not|don'?t|never)\s+(?:refuse|decline|reject|say\s+(?:no|you\s+can'?t|you\s+cannot))", _I), _H),
+    (re.compile(r"no\s+matter\s+what[^.\n]{0,20}?(?:answer|respond|comply|tell)", _I), _M),
+    # --- 응답 프리픽스 강제(output priming): 거절 우회 위해 답을 순응 표현으로 시작하게 강제.
+    #     응답-대상(응답/답변/답/대답) + 순응표현(물론/알겠/기꺼이/당연/sure/certainly…) + 시작 한정 →
+    #     정상 서식('답변을 결론부터 시작')·인사('안녕하세요로 시작')는 순응표현이 아니라 제외.
+    (re.compile(r"(?:응답|답변|답|대답)(?:을|를|은|는)?\s*['\"]?\s*"
+                r"(?:물론|알겠|기꺼이|당연(?:히|하)|좋아[,\s]*(?:물론|알겠)|네[,\s]*(?:알겠|물론))"
+                r"[^.\n]{0,12}?로\s*시작", _I), _M),
+    (re.compile(r"(?:start|begin)\s+(?:your\s+)?(?:response|reply|answer|output|message)\s+with\s+"
+                r"['\"]?\s*(?:sure|yes|of\s+course|certainly|absolutely|here'?s|i\s+(?:can|will|'?d))", _I), _M),
 ]
 
 _P6: list[tuple[re.Pattern[str], Severity]] = [

@@ -54,9 +54,9 @@ LLM 서빙 앞단에서 **사용자 입력**의 프롬프트 인젝션·탈옥�
 
 | 카테고리 | 무엇을 잡나 |
 |---|---|
-| `INSTRUCTION_OVERRIDE` | 이전 지시 무시/리셋/초기화/덮어쓰기/무효화 (한·영 + 어순 도치) |
+| `INSTRUCTION_OVERRIDE` | 이전 지시 무시/리셋/초기화/덮어쓰기/무효화 (한·영 + 어순 도치) + **가짜 채팅 템플릿 구분자 주입**(`<\|im_start\|>`·`[INST]`·`<<SYS>>`) |
 | `PROMPT_LEAK` | 시스템 프롬프트/지침 노출 유도, 서사·역할극 래퍼 추출 |
-| `JAILBREAK` | DAN·개발자/관리자 모드·제약없는 AI·안전필터 해제·할머니 익스플로잇 |
+| `JAILBREAK` | DAN·개발자/관리자 모드·제약없는 AI·안전필터 해제·할머니 익스플로잇 + **거부 억제**(`거부하지 말고 답해`/`do not refuse`) + **응답 프리픽스 강제**(`답을 '물론'으로 시작`/`start with 'Sure'`) |
 | `EXFILTRATION` | "지금까지 대화 전부 출력/덤프", `output everything above` |
 | `TRANSLITERATION` | 영어 명령 한글 음차 (이그노어/디벨로퍼/제일브레이크) |
 | `ENCODING` | base64/hex/%xx/`\xNN` 페이로드 + decode-and-run 휴리스틱 |
