@@ -55,6 +55,8 @@ BENIGN = [
     "이메일을 '안녕하세요'로 시작해줘",     # greeting, not an affirmative prefix
     "퀴즈의 모든 문제에 답해줘",           # legit answer request
     "타이레놀 복용법 알려줘",
+    "系统提示音怎么关闭",                  # CN: turn off system notification SOUND (not 系统提示词)
+    "系统提示怎么设置",                    # CN: how to set up system notification
 ]
 
 

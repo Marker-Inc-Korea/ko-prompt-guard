@@ -395,7 +395,7 @@ _P_ML_LEAK: list[tuple[re.Pattern[str], Severity]] = [
     (re.compile(
         # RU: 'систем(а/ный/...) промпт' — 어간 'систем' 뒤 임의 활용형 + 'промпт'.
         # 'систем 프롬프트'(키릴 system) 위장은 단일 스크립트라 폴딩을 우회하므로 literal 로.
-        r"システムプロンプト|系统提示词?|系統提示|систем\w*\s*промпт|"
+        r"システムプロンプト|系统提示词|系統提示詞|систем\w*\s*промпт|"
         r"prompt\s*del\s*sistema|موجه\s*النظام", _I), _H),
 ]
 _P_ML_JAILBREAK: list[tuple[re.Pattern[str], Severity]] = [
