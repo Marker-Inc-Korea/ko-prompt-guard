@@ -36,6 +36,7 @@ class Category(str, enum.Enum):
     TRANSLITERATION = "transliteration"            # P7 영어 명령 한글 음차
     ENCODING = "encoding"                          # P8 base64/hex 페이로드
     OBFUSCATION = "obfuscation"                    # 난독화 자체가 감지됨
+    SEMANTIC = "semantic"                          # Tier-2 임베딩/LLM 의미 유사 (opt-in reviewer)
 
 
 class Violation(BaseModel):

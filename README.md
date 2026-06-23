@@ -34,7 +34,7 @@ LLM 서빙 앞단에서 **사용자 입력**의 프롬프트 인젝션·탈옥�
 | **결정론(ML 없음)** | 룰·사전·유니코드 산술(0xAC00)만 사용. 네트워크·임베딩·LLM 호출이 코어에 **전혀 없다**(`guard.py` `check()` 는 순수 함수). 재현 가능·수 ms. |
 | **과탐(FP) 우선 설계** | 인젝션 FP 는 정상 사용자를 BLOCK 해 치명적. 일상어(`무시`/`잊어`/`할머니`/`탈옥`)는 **명령형 + 대상(AI/시스템/지시)** 문맥에서만 매칭. |
 | **mixed-script 보존** | 호몰로그 폴딩은 위장 토큰만 — 순수 러시아어/그리스어/터키어/폴란드어 문장은 안 건드림. |
-| **Tier-2 seam 분리** | 의미 기반 판정(임베딩/LLM)은 코어 밖 opt-in Protocol(`semantic.py`)로 위임. 코어는 *형태*만 본다. |
+| **Tier-2 seam 분리** | 의미 기반 판정(임베딩/LLM)은 코어 밖 opt-in Protocol(`semantic.py`)로 위임. 코어는 *형태*만 본다. 레퍼런스 `EmbeddingReviewer`(bge-m3) 동봉 — 룰 17%→하이브리드 91% recall(아래 '하이브리드'). |
 
 ## 구현된 것
 
@@ -110,7 +110,7 @@ guard2 = Guard(p)
 
 ## 검증
 
-- 로컬 테스트 **390개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
+- 로컬 테스트 **399개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
 - 적대적 코퍼스: 8종 난독 변종(초성화/NFD/전각/호몰로그/제로폭/칸별분리/음차/인코딩) + 다국어 + 정상 보존 컨트롤셋(채팅체·식약처 질의·정상 외국어·레시피 분수)을 함께 검증. **번역가장 복종명령 + 영어 의문형 prompt-leak** 회귀는 `test_adversarial_translation_leak.py`로 고정.
 - 모든 픽스처는 **무해 표적**(`이전 지시 무시` / `system prompt 알려줘` 수준)만 사용 — 실제 유해 페이로드 없음.
 
@@ -129,7 +129,7 @@ CPU 단일 코어, Python 3.12, 의존성 `pydantic` 만. 모든 수치는 실�
 | 호출당 지연 — median | **0.094 ms** | 워밍업 후 600회 (정상 + 악성 입력 혼합). |
 | 호출당 지연 — p95 | **0.130 ms** | 동일 측정. |
 | 처리량 (warm) | **약 10,000 calls/sec** | 단일 코어. median 기준 환산. |
-| 전체 테스트 | **390 passed** (skip 0) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
+| 전체 테스트 | **399 passed** (skip 1) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
 
 **견고성 (대용량·적대적 입력 — 무한 블로업 없음):**
 
@@ -181,6 +181,7 @@ pip install .
 ```
 
 - **의존성**: `pydantic>=2.0` 만. ML·네트워크·외부 정규화 라이브러리(jamo/hgtk/unidecode) 불요 — 자모 결합은 stdlib `unicodedata` + 0xAC00 산술로 직접 구현.
+- **opt-in Tier-2**: `pip install ko-prompt-guard[embedding]` (torch+transformers) — `EmbeddingReviewer` 기본 bge-m3 백엔드용. 코어는 여전히 ML-free(인코더 주입 가능).
 - 정규화 엔진은 ko-pii `core/unicode_norm.py`(동일 저자, MIT)에서 이식·확장.
 - 함께 쓰는 가드: `ko-pii`(PII 마스킹), `ko-output-guard`(출력 가드 — `pip install ko-pii` 필요, 입력형 정규화에 ko-prompt-guard 를 옵션으로 사용하며 없으면 graceful fallback), `ko-sqlguard`(도구 SQL 가드).
 
@@ -198,6 +199,26 @@ pip install .
 - **벤치 0% ≠ 일상대화 0%** — 위 수치는 적대적·균형 셋 기준이다. grandmother-exploit 패턴은 **역할모방(`…처럼 말해`)·추출 타깃(시스템/프롬프트/제조법 등) 동반 시에만 발동**하도록 좁혀, 무해 서사 요청 `할머니가 들려주시던 옛날 이야기 해줘`·`동화 들려줘`는 정상 통과하고 실제 익스플로잇은 그대로 FLAG/BLOCK 된다(`tests/test_benign_conversational_fp.py`·`test_redteam_corpus.py`). 그래도 벤치가 모든 캐주얼 트래픽을 대표하진 않는다.
 - recall 이 낮은 이유는 정직하게: 이 벤치마크는 역할극·의미 기반 탈옥이 대부분인데, 결정론 가드는 그런 *의미 공격을 의도적으로 hard-block 하지 않는다*(과탐 방지). 영어 외부 수치는 *언어무관 바닥값*이며(한국어 특화 가드라 영어 인젝션엔 약하게 동작하는 게 정상), 의미 기반 공격의 recall 보강은 향후 분류기(Tier-2) 영역이다.
 - **한국어 인젝션 recall (MT proxy, 2026-06)** — 공개 native-KO 인젝션셋이 없어, deepset 인젝션을 **기계번역(MT)**으로 한국어화해 측정했다(LLM 아닌 MT 라 적대적 프롬프트를 거부·순화 없이 그대로 번역): 인젝션 recall **11.8%**(31/263), 정상 과차단 **0.0%**(0/250). ⚠️ **proxy 한계**: native-KO 아님 + MT 가 한국어 instruction-override 표면을 매끄럽게 만들 수 있어 **보수적 하한**이다. 0% over-block 이 load-bearing 신호. 재현: `eval/external_injection_ko.py`.
+
+### 하이브리드 (opt-in Tier-2 `EmbeddingReviewer`)
+
+의미·역할극·패러프레이즈 공격의 recall 갭은 **임베딩 reviewer** 로 닫는다. 입력을 임베딩(기본 bge-m3)해 *알려진 공격 앵커*와 top-k 코사인 유사도로 risk(0..1)를 매기고, 룰이 통과시킨 입력만 advisory FLAG 한다(`semantic.py` 의 `SemanticReviewer` seam 구현, 절대 단독 BLOCK 안 함).
+
+외부 injection 셋(xTRam1+deepset test, 687 영어 injection / 2,838 정상 EN+KO benign)에서 실측 — *shipped `EmbeddingReviewer`+`hybrid_check`* 로 재현:
+
+| 구성 | injection recall | FPR | 한국어 benign FPR |
+|---|---:|---:|---:|
+| 룰-only (결정론) | 17.3% | **0.00%** | 0.00% |
+| 하이브리드 + **번들 기본앵커 73개** (thr 0.60) | **47.7%** | 0.25% | ~0% |
+| 하이브리드 + **사용자 공격코퍼스 620개** (thr 0.60) | **91.0%** | 0.70% | ~0% |
+
+→ **번들 앵커만으로 박스에서 ~2.8배**(17→48%), 자체 레드팀 코퍼스를 `anchors=` 로 넣으면 **91%** 까지. 한국어 정상 오탐은 다국어 임베딩이라 ~0%. ⚠️ **정직한 한계**: in-distribution(앵커 동계열)은 ~97%지만 cross-dataset(신종 공격 계열)은 ~25% 로 떨어진다 — 임베딩-유사도는 *본 적 있는 공격의 변형*에 강하고, 완전 신종엔 약하다(fine-tuned 분류기가 더 일반화). `pip install ko-prompt-guard[embedding]`(torch+transformers). 인코더는 주입 가능(`encode=`)해 코어는 ML-free 유지. 사용:
+
+```python
+from ko_prompt_guard import EmbeddingReviewer, hybrid_check
+rv = EmbeddingReviewer(anchors=my_attack_corpus)   # 생략 시 번들 기본앵커
+result = hybrid_check(user_input, rv, threshold=0.60)   # check() + advisory FLAG
+```
 
 ---
 
