@@ -110,7 +110,7 @@ guard2 = Guard(p)
 
 ## 검증
 
-- 로컬 테스트 **399개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
+- 로컬 테스트 **407개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
 - 적대적 코퍼스: 8종 난독 변종(초성화/NFD/전각/호몰로그/제로폭/칸별분리/음차/인코딩) + 다국어 + 정상 보존 컨트롤셋(채팅체·식약처 질의·정상 외국어·레시피 분수)을 함께 검증. **번역가장 복종명령 + 영어 의문형 prompt-leak** 회귀는 `test_adversarial_translation_leak.py`로 고정.
 - 모든 픽스처는 **무해 표적**(`이전 지시 무시` / `system prompt 알려줘` 수준)만 사용 — 실제 유해 페이로드 없음.
 
@@ -129,7 +129,7 @@ CPU 단일 코어, Python 3.12, 의존성 `pydantic` 만. 모든 수치는 실�
 | 호출당 지연 — median | **0.094 ms** | 워밍업 후 600회 (정상 + 악성 입력 혼합). |
 | 호출당 지연 — p95 | **0.130 ms** | 동일 측정. |
 | 처리량 (warm) | **약 10,000 calls/sec** | 단일 코어. median 기준 환산. |
-| 전체 테스트 | **399 passed** (skip 1) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
+| 전체 테스트 | **407 passed** (skip 2) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
 
 **견고성 (대용량·적대적 입력 — 무한 블로업 없음):**
 
@@ -218,6 +218,28 @@ pip install .
 from ko_prompt_guard import EmbeddingReviewer, hybrid_check
 rv = EmbeddingReviewer(anchors=my_attack_corpus)   # 생략 시 번들 기본앵커
 result = hybrid_check(user_input, rv, threshold=0.60)   # check() + advisory FLAG
+```
+
+### 신종(cross-dataset) 보강 — `ClassifierReviewer` (fine-tuned)
+
+임베딩-유사도의 한계(신종 ~25%)는 **fine-tuned 분류기**로 닫는다. 다양한 공격 *기법*을
+합성(8종 패턴)해 학습한 klue/roberta 분류기를, 학습에 **전혀 안 쓴** 외부 셋(deepset)으로
+held-out 평가하면:
+
+| 방식 | in-distribution | **신종(deepset, held-out)** |
+|---|---|---|
+| `EmbeddingReviewer` (anchor 유사도) | ~91% recall | recall **~25%** |
+| `ClassifierReviewer` (합성기법 학습) | ~100% (val) | recall **99.6%** (F1 86.3) |
+
+신종 일반화가 크게 낫다. 같은 `SemanticReviewer` seam이라 `hybrid_check` 에 그대로 끼운다.
+⚠️ 학습 negative 도메인 밖 정상문에선 precision 이 낮아질 수 있어 **advisory FLAG** 로 쓰고
+(룰의 정밀도와 결합), threshold 는 *배포 도메인*의 정상문 FPR 로 정한다. 가중치는
+bring-your-own(레시피만; `eval/train_injection.py` 류).
+
+```python
+from ko_prompt_guard import ClassifierReviewer, hybrid_check
+rv = ClassifierReviewer("/path/to/inj_clf/final", threshold=0.95)  # 또는 scorer= 주입
+result = hybrid_check(user_input, rv, threshold=0.95)
 ```
 
 ---

@@ -27,10 +27,12 @@ from .result import (
 # Opt-in semantic reviewer (Tier-2). reviewers.py is ML-free at import — the bge-m3
 # backend is imported lazily only when EmbeddingReviewer's default encoder runs.
 from .reviewers import (
+    ClassifierReviewer,
     EmbeddingReviewer,
     default_anchors,
     hybrid_check,
     make_bge_encoder,
+    make_roberta_classifier,
 )
 from .semantic import SemanticReviewer
 
@@ -38,6 +40,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "Category",
+    "ClassifierReviewer",
     "EmbeddingReviewer",
     "Guard",
     "GuardBlocked",
@@ -51,6 +54,7 @@ __all__ = [
     "default_anchors",
     "hybrid_check",
     "make_bge_encoder",
+    "make_roberta_classifier",
     "normalize",
     "__version__",
 ]
