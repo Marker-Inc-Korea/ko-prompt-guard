@@ -222,6 +222,12 @@ pip install .
 - protectai/deberta-v3-base-prompt-injection-v2 는 난독 텍스트를 *무차별* flag(recall·FPR 동시
   ~100%) — 탐지가 아닌 anomaly 반응이라 운영 불가.
 
+**에이전틱 보안 harness 관점**: 위 protectai-deberta 는 OSS 툴킷 **LLM Guard 의 PromptInjection
+스캐너 엔진**이고, Prompt-Guard-86M 은 **Meta LlamaFirewall(2025)** PromptGuard 스캐너의 직전
+세대다(현 v2 = Prompt-Guard-2 는 gated 미승인으로 미측정). 즉 최신 에이전틱 보안 harness 의
+인젝션 엔진들이 한국어 난독에서 무너지거나(zerowidth recall 0%) 무차별 반응하는 자리를,
+ko-prompt-guard 가 `normalize()` 로 메운다. 전체 스위트 비교는 루트 `EVAL.md`.
+
 ### 하이브리드 (opt-in Tier-2 `EmbeddingReviewer`)
 
 의미·역할극·패러프레이즈 공격의 recall 갭은 **임베딩 reviewer** 로 닫는다. 입력을 임베딩(기본 bge-m3)해 *알려진 공격 앵커*와 top-k 코사인 유사도로 risk(0..1)를 매기고, 룰이 통과시킨 입력만 advisory FLAG 한다(`semantic.py` 의 `SemanticReviewer` seam 구현, 절대 단독 BLOCK 안 함).
