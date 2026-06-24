@@ -37,7 +37,7 @@ def main():
     sets = json.load(open(SETS))
     preds = json.load(open(PREDS))
     report = {}
-    SYS = ["ko_rules", "ko_hybrid", "prompt_guard_86m", "protectai_deberta", "ko_classifier"]
+    SYS = ["ko_rules", "ko_hybrid", "prompt_guard_86m", "prompt_guard_2_86m", "protectai_deberta", "ko_classifier"]
     print(f"{'variant':14} | " + " | ".join(f"{s:>10}" for s in SYS) + "   (recall%, 괄호 FPR%)")
     for variant, rows in sets.items():
         texts = [t for t, _ in rows]
@@ -50,6 +50,7 @@ def main():
             "ko_rules": ko_rule_pos,
             "ko_hybrid": ko_hybrid_pos,
             "prompt_guard_86m": [p > THR for p in preds[variant]["prompt_guard_86m"]],
+            "prompt_guard_2_86m": [p > THR for p in preds[variant]["prompt_guard_2_86m"]],
             "protectai_deberta": [p > THR for p in preds[variant]["protectai_deberta"]],
             "ko_classifier": [p > THR for p in clf],
         }

@@ -205,17 +205,21 @@ pip install .
 영어권 가드가 한국어 난독에서 무너지는지 직접 측정(`eval/bench_prompt_*.py`). 같은 한국어
 인젝션을 평문 + 난독 변형으로 만들어 injection recall 비교:
 
-| variant | ko-prompt-guard 룰 (FPR) | Prompt-Guard-86M |
-|---|---|---|
-| plain_ko (평문) | 11.8 (0) | 84.4 |
-| obf_jamo (자모분리 `ㅁㅜㅅㅣ`) | 11.8 (0) | 66.2 |
-| obf_zerowidth (제로폭) | 11.8 (0) | **0.0** |
-| obf_fullwidth (전각) | 11.8 (0) | 14.1 |
-| obf_homoglyph (키릴) | 11.8 (0) | 61.2 |
+| variant | ko-prompt-guard 룰 (FPR) | Prompt-Guard-86M (v1) | **Prompt-Guard-2** (2025) |
+|---|---|---|---|
+| plain_ko (평문) | 11.8 (0) | 84.4 (FPR **79**) | 13.7 (0) |
+| obf_jamo (자모분리 `ㅁㅜㅅㅣ`) | 11.8 (0) | 66.2 | 10.3 |
+| obf_zerowidth (제로폭) | 11.8 (0) | **0.0** | **0.0** |
+| obf_fullwidth (전각) | 11.8 (0) | 14.1 | 4.6 |
+| obf_homoglyph (키릴) | 11.8 (0) | 61.2 | 7.2 |
+| **난독 평균 recall** | **불변(~12%)** | 30.6% | **4.5%** |
 
 - **ko-prompt-guard 룰 recall 은 난독에 *불변*** — `normalize()`가 난독을 원형으로 펴므로 평문과
-  난독 변형에서 같은 recall(11.8%), **FPR 0% 일관**. 반면 Prompt-Guard-86M 은 평문 84% 에서
-  난독 시 붕괴(제로폭 **0%**) — 영어 학습 토크나이저가 한국어 난독을 못 편다.
+  난독 변형에서 같은 recall(11.8%), **FPR 0% 일관**. 반면 Prompt-Guard 계열은 한국어에서 무너진다.
+- **Prompt-Guard-2(2025, Meta 현 SOTA)는 한국어에서 더 약하다** — 평문 한국어 인젝션조차 13.7%만
+  잡고(직접 `이전 지시 무시`는 잡으나 roleplay/DAN·간접·번역체는 놓침), 난독에선 4.5% 로 붕괴.
+  v1 의 평문 84% 는 **FPR 79%**(정상문도 무차별 flag)로 부풀려진 값이라 실사용 불가(v1↔v2 모두 저-FPR
+  운영점에선 한국어 recall 이 낮다).
 - 정직한 한계: ko-prompt-guard 룰의 *절대* recall(~12%)은 낮다 — MT/의미·역할극 공격을 정밀-우선
   설계가 의도적으로 hard-block 안 하기 때문(recall 은 아래 Tier-2 영역). **차별점은 절대 recall 이
   아니라 난독 robustness(불변성)** 이며, 이는 이 가드의 존재 이유와 정확히 일치한다.
@@ -223,10 +227,10 @@ pip install .
   ~100%) — 탐지가 아닌 anomaly 반응이라 운영 불가.
 
 **에이전틱 보안 harness 관점**: 위 protectai-deberta 는 OSS 툴킷 **LLM Guard 의 PromptInjection
-스캐너 엔진**이고, Prompt-Guard-86M 은 **Meta LlamaFirewall(2025)** PromptGuard 스캐너의 직전
-세대다(현 v2 = Prompt-Guard-2 는 gated 미승인으로 미측정). 즉 최신 에이전틱 보안 harness 의
-인젝션 엔진들이 한국어 난독에서 무너지거나(zerowidth recall 0%) 무차별 반응하는 자리를,
-ko-prompt-guard 가 `normalize()` 로 메운다. 전체 스위트 비교는 루트 `EVAL.md`.
+스캐너 엔진**이고, **Prompt-Guard-2 는 Meta LlamaFirewall(2025)** PromptGuard 스캐너의 엔진이다.
+즉 최신(2025) 에이전틱 보안 harness 들의 인젝션 엔진이 한국어에서 평문 13.7%·난독 4.5% recall 로
+비기능적이거나(Prompt-Guard-2/LlamaFirewall) 난독 텍스트에 무차별 반응(protectai/LLM Guard)하는
+자리를, ko-prompt-guard 가 `normalize()` 로 메운다. 전체 스위트 비교는 루트 `EVAL.md`.
 
 ### 하이브리드 (opt-in Tier-2 `EmbeddingReviewer`)
 
