@@ -200,6 +200,28 @@ pip install .
 - recall 이 낮은 이유는 정직하게: 이 벤치마크는 역할극·의미 기반 탈옥이 대부분인데, 결정론 가드는 그런 *의미 공격을 의도적으로 hard-block 하지 않는다*(과탐 방지). 영어 외부 수치는 *언어무관 바닥값*이며(한국어 특화 가드라 영어 인젝션엔 약하게 동작하는 게 정상), 의미 기반 공격의 recall 보강은 향후 분류기(Tier-2) 영역이다.
 - **한국어 인젝션 recall (MT proxy, 2026-06)** — 공개 native-KO 인젝션셋이 없어, deepset 인젝션을 **기계번역(MT)**으로 한국어화해 측정했다(LLM 아닌 MT 라 적대적 프롬프트를 거부·순화 없이 그대로 번역): 인젝션 recall **11.8%**(31/263), 정상 과차단 **0.0%**(0/250). ⚠️ **proxy 한계**: native-KO 아님 + MT 가 한국어 instruction-override 표면을 매끄럽게 만들 수 있어 **보수적 하한**이다. 0% over-block 이 load-bearing 신호. 재현: `eval/external_injection_ko.py`.
 
+### 경쟁군 대비 (vs meta-llama/Prompt-Guard-86M, 난독 robustness)
+
+영어권 가드가 한국어 난독에서 무너지는지 직접 측정(`eval/bench_prompt_*.py`). 같은 한국어
+인젝션을 평문 + 난독 변형으로 만들어 injection recall 비교:
+
+| variant | ko-prompt-guard 룰 (FPR) | Prompt-Guard-86M |
+|---|---|---|
+| plain_ko (평문) | 11.8 (0) | 84.4 |
+| obf_jamo (자모분리 `ㅁㅜㅅㅣ`) | 11.8 (0) | 66.2 |
+| obf_zerowidth (제로폭) | 11.8 (0) | **0.0** |
+| obf_fullwidth (전각) | 11.8 (0) | 14.1 |
+| obf_homoglyph (키릴) | 11.8 (0) | 61.2 |
+
+- **ko-prompt-guard 룰 recall 은 난독에 *불변*** — `normalize()`가 난독을 원형으로 펴므로 평문과
+  난독 변형에서 같은 recall(11.8%), **FPR 0% 일관**. 반면 Prompt-Guard-86M 은 평문 84% 에서
+  난독 시 붕괴(제로폭 **0%**) — 영어 학습 토크나이저가 한국어 난독을 못 편다.
+- 정직한 한계: ko-prompt-guard 룰의 *절대* recall(~12%)은 낮다 — MT/의미·역할극 공격을 정밀-우선
+  설계가 의도적으로 hard-block 안 하기 때문(recall 은 아래 Tier-2 영역). **차별점은 절대 recall 이
+  아니라 난독 robustness(불변성)** 이며, 이는 이 가드의 존재 이유와 정확히 일치한다.
+- protectai/deberta-v3-base-prompt-injection-v2 는 난독 텍스트를 *무차별* flag(recall·FPR 동시
+  ~100%) — 탐지가 아닌 anomaly 반응이라 운영 불가.
+
 ### 하이브리드 (opt-in Tier-2 `EmbeddingReviewer`)
 
 의미·역할극·패러프레이즈 공격의 recall 갭은 **임베딩 reviewer** 로 닫는다. 입력을 임베딩(기본 bge-m3)해 *알려진 공격 앵커*와 top-k 코사인 유사도로 risk(0..1)를 매기고, 룰이 통과시킨 입력만 advisory FLAG 한다(`semantic.py` 의 `SemanticReviewer` seam 구현, 절대 단독 BLOCK 안 함).
