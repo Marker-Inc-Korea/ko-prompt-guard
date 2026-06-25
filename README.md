@@ -277,19 +277,25 @@ result = hybrid_check(user_input, rv, threshold=0.60)   # check() + advisory FLA
 
 ### 신종(cross-dataset) 보강 — `ClassifierReviewer` (fine-tuned)
 
-임베딩-유사도의 한계(신종 ~25%)는 **fine-tuned 분류기**로 닫는다. 다양한 공격 *기법*을
-합성(8종 패턴)해 학습한 klue/roberta 분류기를, 학습에 **전혀 안 쓴** 외부 셋(deepset)으로
-held-out 평가하면:
+의미·역할극 공격 recall 은 **fine-tuned 분류기**로 보강할 수 있으나, **정직하게 그 한계를
+정량화**한다. 다양한 공격 기법을 합성(8종)해 학습한 klue/roberta 를 학습에 안 쓴 deepset 으로
+held-out 평가 — recall 만이 아니라 **FPR 까지 함께** 봐야 한다:
 
-| 방식 | in-distribution | **신종(deepset, held-out)** |
-|---|---|---|
-| `EmbeddingReviewer` (anchor 유사도) | ~91% recall | recall **~25%** |
-| `ClassifierReviewer` (합성기법 학습) | ~100% (val) | recall **99.6%** (F1 86.3) |
+| 방식 (학습 negative) | deepset recall | deepset FPR | NotInject 과탐 |
+|---|---|---|---|
+| `EmbeddingReviewer` (anchor 유사도) | ~25% | (낮음) | — |
+| `ClassifierReviewer` v1 (negative=의료뿐) | 99.6% | **82%** | **100%** |
+| `ClassifierReviewer` v2 (negative=다양 한국어 benign) | **37%** | **0%** | 85% |
 
-신종 일반화가 크게 낫다. 같은 `SemanticReviewer` seam이라 `hybrid_check` 에 그대로 끼운다.
-⚠️ 학습 negative 도메인 밖 정상문에선 precision 이 낮아질 수 있어 **advisory FLAG** 로 쓰고
-(룰의 정밀도와 결합), threshold 는 *배포 도메인*의 정상문 FPR 로 정한다. 가중치는
-bring-your-own(레시피만; `eval/train_injection.py` 류).
+⚠️ **v1 의 99.6% 는 FPR 82%(정상문도 거의 다 flag)로 부풀려진 값**이다. negative 를 다양한
+한국어 benign 으로 바꿔 재학습(v2)하면 FPR 이 0% 로 떨어지는데 **그제야 드러나는 진짜 판별
+recall 은 ~37%**(임계값 스윕 전 구간 고정 — `eval/train_injection_v2.py`). 근본 원인은 **공개
+native-KO 인젝션 학습셋 부재** — synth 학습분포 ↔ deepset(MT 번역체) 테스트분포 격차라, 분포가
+맞는 positive 없이는 분류기를 강한 KO 인젝션 탐지기로 만들 수 없다.
+
+→ **결론: 0% FPR 의 정밀한 룰이 신뢰 가능한 코어**다. `ClassifierReviewer` 는 advisory FLAG 로만
+(룰 보조), 강한 KO 분류기는 native-KO 인젝션 데이터 확보 후 과제. 같은 `SemanticReviewer` seam
+이라 `hybrid_check` 에 끼운다. 가중치 bring-your-own(`eval/train_injection.py`·`train_injection_v2.py`).
 
 ```python
 from ko_prompt_guard import ClassifierReviewer, hybrid_check
