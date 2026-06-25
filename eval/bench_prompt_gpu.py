@@ -20,6 +20,7 @@ OUT = "/data1/mk04/eval_external/prompt_preds_gpu.json"
 MODELS = {
     "prompt_guard_86m": ("meta-llama/Prompt-Guard-86M", "multi"),     # v1: P1+P2
     "prompt_guard_2_86m": ("project-free-llama/Llama-Prompt-Guard-2-86M", "binary1"),  # v2(2025)=LlamaFirewall 엔진, binary P1
+    "qualifire_sentinel": ("qualifire/prompt-injection-sentinel", "binary1"),  # ModernBERT 2025 SOTA, {0 benign,1 jailbreak}
     "protectai_deberta": ("protectai/deberta-v3-base-prompt-injection-v2", "binary1"),
     "ko_classifier": ("/data1/mk04/eval_external/inj_clf/final", "binary1"),
 }

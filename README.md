@@ -236,6 +236,25 @@ pip install .
 취약하거나(Prompt-Guard-2/LlamaFirewall) 난독 텍스트에 무차별 반응(protectai/LLM Guard)하는
 자리를, ko-prompt-guard 가 `normalize()` 로 메운다. 전체 스위트 비교는 루트 `EVAL.md`.
 
+> 2025 SOTA 분류기 **qualifire/prompt-injection-sentinel**(ModernBERT)도 추가 측정: 평문 한국어
+> recall 89.7%(FPR **61.6%**)지만 자모분리 난독에서 22.4% 로 붕괴(난독 평균 55.5%) — 영어계 SOTA
+> 도 한국어 난독엔 약하고 과탐이 크다.
+
+### 과탐(over-defense) — NotInject
+
+`InjecGuard/NotInject`(339건, 인젝션 트리거 단어를 포함하지만 **전부 정상**인 프롬프트 — 예
+"Can I **ignore** this warning in my code?"). FPR = 과탐율(정상을 공격으로 오판), **낮을수록 좋다**:
+
+| ko-prompt-guard 룰 | LlamaFirewall(v2) | qualifire | protectai | Prompt-Guard-86M(v1) | ko_classifier(Tier-2) |
+|---|---|---|---|---|---|
+| **0.0%** | 4.4% | 26.0% | 43.4% | 99.7% | 100% |
+
+- **ko-prompt-guard 룰 0% 과탐** — 트리거 단어가 있어도 *명령형 + AI/시스템/지시 대상* 문맥이 아니면
+  통과하는 문맥 게이팅 덕분(과탐-우선 설계의 직접 증거). v1·protectai·qualifire 는 트리거 단어에
+  반응해 정상을 대량 오차단한다(v2 는 과탐을 줄였으나 그 대가로 recall 도 급락 — 위 표).
+- ⚠️ **정직한 한계**: 우리 Tier-2 분류기(ko_classifier)도 100% 과탐 — 도메인밖 benign FPR 문제를
+  NotInject 가 정조준한다. Tier-2 는 배포 도메인 negative 재학습 전엔 룰의 보조로만 써야 한다.
+
 ### 하이브리드 (opt-in Tier-2 `EmbeddingReviewer`)
 
 의미·역할극·패러프레이즈 공격의 recall 갭은 **임베딩 reviewer** 로 닫는다. 입력을 임베딩(기본 bge-m3)해 *알려진 공격 앵커*와 top-k 코사인 유사도로 risk(0..1)를 매기고, 룰이 통과시킨 입력만 advisory FLAG 한다(`semantic.py` 의 `SemanticReviewer` seam 구현, 절대 단독 BLOCK 안 함).
