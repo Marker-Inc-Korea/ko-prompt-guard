@@ -200,7 +200,14 @@ pip install .
 - **정상 프롬프트 과차단 0%** — 영어·한국어 정상 입력 **4,561건을 한 건도 잘못 막지 않았다**(결정론의 정밀도). 특히 실제 한국어 정상문(APEACH 1,409건)에서도 오차단 0% — 일상 한국어를 인젝션으로 오인하지 않는다(번역 proxy 가 아닌 native-KO 검증).
 - **벤치 0% ≠ 일상대화 0%** — 위 수치는 적대적·균형 셋 기준이다. grandmother-exploit 패턴은 **역할모방(`…처럼 말해`)·추출 타깃(시스템/프롬프트/제조법 등) 동반 시에만 발동**하도록 좁혀, 무해 서사 요청 `할머니가 들려주시던 옛날 이야기 해줘`·`동화 들려줘`는 정상 통과하고 실제 익스플로잇은 그대로 FLAG/BLOCK 된다(`tests/test_benign_conversational_fp.py`·`test_redteam_corpus.py`). 그래도 벤치가 모든 캐주얼 트래픽을 대표하진 않는다.
 - recall 이 낮은 이유는 정직하게: 이 벤치마크는 역할극·의미 기반 탈옥이 대부분인데, 결정론 가드는 그런 *의미 공격을 의도적으로 hard-block 하지 않는다*(과탐 방지). 영어 외부 수치는 *언어무관 바닥값*이며(한국어 특화 가드라 영어 인젝션엔 약하게 동작하는 게 정상), 의미 기반 공격의 recall 보강은 향후 분류기(Tier-2) 영역이다.
-- **한국어 인젝션 recall (MT proxy, 2026-06)** — 공개 native-KO 인젝션셋이 없어, deepset 인젝션을 **기계번역(MT)**으로 한국어화해 측정했다(LLM 아닌 MT 라 적대적 프롬프트를 거부·순화 없이 그대로 번역): 인젝션 recall **11.8%**(31/263), 정상 과차단 **0.0%**(0/250). ⚠️ **proxy 한계**: native-KO 아님 + MT 가 한국어 instruction-override 표면을 매끄럽게 만들 수 있어 **보수적 하한**이다. 0% over-block 이 load-bearing 신호. 재현: `eval/external_injection_ko.py`.
+- **한국어 인젝션 recall (native-KO, 2026-06)** — `xxxjjhhh/korean_guardrail_test`(647건, native
+  한국어 인젝션 352 / benign 295 — 확인된 유일한 MT-비proxy 한국어 인젝션셋)에서 룰 recall **40.3%**,
+  정상 과차단 **3.4%**(`eval/bench_prompt_*.py`, native_ko 변형). ⚠️ 절대 recall 은 결정론 룰의
+  정밀-우선 수준(의미·역할극 공격은 의도적으로 hard-block 안 함 — Tier-2 영역)이지만, **MT proxy
+  측정(11.8%)보다 3.4배 높다** — MT 가 한국어 instruction-override 표면을 매끄럽게 만들어 proxy 가
+  하향편향임을 실증한다. 같은 native 셋에서 경쟁군은 양극단: Prompt-Guard-86M(v1) 97.7%지만 **FPR
+  98.3%**(무차별 flag), LlamaFirewall(Prompt-Guard-2) 17.9%, qualifire 77.8%(FPR 81.4%). 룰만 저-FPR
+  구간을 지킨다. (참고: MT proxy 측정은 `eval/external_injection_ko.py` — 11.8%/0% over-block.)
 
 ### 경쟁군 대비 (vs Meta LlamaFirewall / Prompt-Guard, 난독 robustness)
 

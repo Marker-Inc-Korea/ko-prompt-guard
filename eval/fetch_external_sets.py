@@ -57,6 +57,14 @@ def main():
             f.write(json.dumps(x, ensure_ascii=False) + "\n")
     print(f"K-HATERS: {len(sample)} (balanced)")
 
+    # native-KO 인젝션 (xxxjjhhh/korean_guardrail_test — 647, MT proxy 아닌 유일한 native-KO셋)
+    ni = rows("xxxjjhhh/korean_guardrail_test", "default", "train", n=1000)
+    with open(f"{OUT}/korean_injection_native.jsonl", "w") as f:
+        for x in ni:
+            f.write(json.dumps({"text": x["prompt"], "label": 1 if x["is_injection"] else 0,
+                                "src": "xxxjjhhh/korean_guardrail_test"}, ensure_ascii=False) + "\n")
+    print(f"native-KO injection: {len(ni)}")
+
 
 if __name__ == "__main__":
     main()
