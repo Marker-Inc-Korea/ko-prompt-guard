@@ -69,6 +69,28 @@ class GuardResult(BaseModel):
         return self.verdict is not Verdict.BLOCK
 
 
+class ContextScanResult(BaseModel):
+    """검색 문서·도구 출력 등 *비-사용자 콘텐츠*의 간접 프롬프트 인젝션(indirect PI) 스캔 결과.
+
+    사용자 입력 가드(``GuardResult``)와 의미가 다르다. 여기서 신호는 "이 콘텐츠가 *에이전트를
+    탈취하려는* 인젝션을 품고 있다"는 뜻이므로, 권고는 사용자 BLOCK 이 아니라 **문서 QUARANTINE**
+    (해당 콘텐츠를 신뢰/주입하지 말 것)이다. 에이전틱 RAG(검색 문서)·도구 응답이 주 공격 벡터다.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    poisoned: bool                       # 간접 PI 신호 존재 여부
+    source: str = "context"              # "rag" / "tool" / "document" 등 출처 라벨
+    recommendation: str                  # "quarantine"(격리) | "use"(사용 가능)
+    normalized_text: str                 # 난독 해제된 콘텐츠(숨은 인젝션이 드러남)
+    violations: tuple[Violation, ...] = ()
+    was_obfuscated: bool = False         # 콘텐츠가 난독화돼 있었는지(그 자체로 의심 신호)
+
+    @property
+    def ok(self) -> bool:
+        return not self.poisoned
+
+
 class GuardBlocked(Exception):
     """Raised by Guard.enforce() when the input is blocked."""
 

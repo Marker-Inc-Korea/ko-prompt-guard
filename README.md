@@ -20,11 +20,13 @@ LLM 서빙 앞단에서 **사용자 입력**의 프롬프트 인젝션·탈옥�
 **다층 방어(defense-in-depth)에서의 위치:**
 
 ```
-입력 → [ko-prompt-guard] → [PII 마스킹(ko-pii)] → LLM → [output-guard(ko-output-guard)]
-                                                  도구 호출 SQL → [ko-sqlguard]
+사용자 입력      → [check]         → [PII 마스킹(ko-pii)] → LLM → [output-guard]
+검색문서·도구출력 → [scan_context]  ↗ (간접 PI 격리)        도구 SQL → [ko-sqlguard]
 ```
 
-`normalize()` 를 1급 공개 API로 노출하므로, 기존(영어) 가드 **앞단에 끼우는 한국어 전처리 레이어**로도 쓸 수 있다 — "ko-prompt-guard로 펴서 → 기존 가드로 판정".
+`check()` 는 **사용자 입력**을, `scan_context()` 는 **검색 문서·도구 출력**(에이전틱 공격의 주
+벡터)을 스캔한다. `normalize()` 를 1급 공개 API로 노출하므로, 기존(영어) 가드 **앞단에 끼우는
+한국어 전처리 레이어**로도 쓸 수 있다 — "ko-prompt-guard로 펴서 → 기존 가드로 판정".
 
 ## 핵심 차별점
 
@@ -275,6 +277,41 @@ from ko_prompt_guard import ClassifierReviewer, hybrid_check
 rv = ClassifierReviewer("/path/to/inj_clf/final", threshold=0.95)  # 또는 scorer= 주입
 result = hybrid_check(user_input, rv, threshold=0.95)
 ```
+
+---
+
+## 간접 프롬프트 인젝션 — `scan_context()` (RAG·도구 출력 스캔)
+
+에이전틱 공격의 **주 벡터는 사용자 턴이 아니라 검색된 문서·도구 응답 안에 숨은 인젝션**이다
+(InjecAgent 1,054건이 tool response 로 전달; AgentDojo 629건이 tool output 주입). 입력 가드
+(`check()`)는 사용자 입력만 보므로 이 공격을 **구조적으로 0% 탐지**한다 — 페이로드가 사용자
+입력이 아니라 검색 콘텐츠 안에 있기 때문. `scan_context()` 가 그 공백을 메운다.
+
+```python
+from ko_prompt_guard import scan_context
+
+doc = retrieve("타이레놀 복용법")   # 예: RAG 로 끌어온 문서에 인젝션이 심어져 있음
+r = scan_context(doc, source="rag")
+if r.poisoned:                       # recommendation == "quarantine"
+    drop_or_flag(doc)                # 이 문서를 신뢰/주입하지 말 것 (사용자 BLOCK 아님)
+```
+
+`check()` 의 normalize()+탐지기를 그대로 재사용하므로 **난독으로 숨긴 인젝션도 펴서 잡는다** —
+입력 가드의 난독 강건성이 검색 콘텐츠에 그대로 적용된다. 판정은 사용자 BLOCK 이 아니라 **문서
+QUARANTINE**(격리) 시맨틱이고, FLAG 수준 약신호도 격리 대상으로 본다.
+
+**측정 (식약처 benign 의료문서에 인젝션을 숨긴 오염 문서, `bench_context.py`):**
+
+| 숨긴 인젝션 | plain | jamo(자모) | zerowidth(제로폭) | fullwidth(전각) | benign문서 FPR |
+|---|---|---|---|---|---|
+| 명시적(synth 8기법) | 43.0% | 43.0% | 43.0% | 43.0% | **0.0%** |
+| MT-간접(ko_injection_eval) | 12.0% | 12.0% | 12.0% | 12.0% | **0.0%** |
+
+- **난독 불변** — 평문과 자모분리/제로폭/전각에서 recall 동일(normalize 가 문서 속 난독도 펴줌).
+- **benign 문서 FPR 0%** — 정상 검색 문서를 잘못 격리하지 않는다.
+- 절대 recall 은 결정론 룰의 정밀-우선 수준(명시적 43% / MT-간접 12%) — 의미·역할극 indirect PI
+  는 Tier-2 reviewer 로 보강한다(`hybrid_check` 와 동일 seam). **핵심은 입력-가드만으론 0% 인
+  공백을 난독 불변·0% FPR 로 메운다는 것**이며, 이는 에이전틱 RAG(풀스토리/세이프)의 실위협이다.
 
 ---
 

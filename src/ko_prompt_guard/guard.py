@@ -11,7 +11,27 @@ from . import patterns
 from .normalize import normalize
 from .normalize.leet import deleet_variants
 from .policy import GuardPolicy
-from .result import GuardBlocked, GuardResult, Verdict, Violation
+from .result import (
+    Category,
+    ContextScanResult,
+    GuardBlocked,
+    GuardResult,
+    Verdict,
+    Violation,
+)
+
+# 검색 문서·도구 출력에서 "에이전트를 탈취하려는" 신호로 보는 카테고리 (간접 PI).
+# OBFUSCATION/SEMANTIC 은 단독으로는 격리 사유 아님(정상 문서도 이모지/난독 있을 수 있음).
+_INDIRECT_PI_CATEGORIES = frozenset(
+    {
+        Category.INSTRUCTION_OVERRIDE,
+        Category.PROMPT_LEAK,
+        Category.JAILBREAK,
+        Category.EXFILTRATION,
+        Category.TRANSLITERATION,
+        Category.ENCODING,
+    }
+)
 
 
 class Guard:
@@ -79,7 +99,36 @@ class Guard:
             raise GuardBlocked(result)
         return result.normalized_text
 
+    def scan_context(self, content: str, *, source: str = "context") -> ContextScanResult:
+        """검색 문서·도구 출력 등 *비-사용자 콘텐츠*를 간접 프롬프트 인젝션(indirect PI)으로 스캔.
+
+        에이전틱 공격의 주 벡터는 사용자 턴이 아니라 *검색된 문서·도구 응답* 안에 숨은 인젝션이다
+        (예: RAG 로 끌어온 문서에 "이전 지시 무시하고 …"). ``check()`` 의 normalize()+탐지기를
+        그대로 재사용하므로 **난독(초성화/제로폭/전각/호몰로그)으로 숨긴 인젝션도 펴서 잡는다** —
+        입력 가드와 동일한 난독 강건성이 검색 콘텐츠에도 적용된다.
+
+        단 판정 의미가 다르다: 신호가 있으면 사용자 BLOCK 이 아니라 **문서 QUARANTINE**
+        (해당 콘텐츠를 신뢰/주입하지 말 것). 검색 콘텐츠의 인젝션 패턴은 FLAG 수준 약신호라도
+        격리 대상이므로 FLAG/BLOCK 을 모두 ``poisoned`` 로 본다.
+        """
+        result = self.check(content)
+        pi = tuple(v for v in result.violations if v.category in _INDIRECT_PI_CATEGORIES)
+        poisoned = bool(pi)
+        return ContextScanResult(
+            poisoned=poisoned,
+            source=source,
+            recommendation="quarantine" if poisoned else "use",
+            normalized_text=result.normalized_text,
+            violations=pi,
+            was_obfuscated=result.was_obfuscated,
+        )
+
 
 def check(text: str, policy: GuardPolicy | None = None) -> GuardResult:
     """모듈 레벨 편의 함수 — Guard(policy).check(text)."""
     return Guard(policy).check(text)
+
+
+def scan_context(content: str, policy: GuardPolicy | None = None, *, source: str = "context") -> ContextScanResult:
+    """모듈 레벨 편의 함수 — Guard(policy).scan_context(content). 간접 PI(검색문서/도구출력) 스캔."""
+    return Guard(policy).scan_context(content, source=source)
