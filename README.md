@@ -217,9 +217,9 @@ pip install .
 
 - **ko-prompt-guard 룰 recall 은 난독에 *불변*** — `normalize()`가 난독을 원형으로 펴므로 평문과
   난독 변형에서 같은 recall(11.8%), **FPR 0% 일관**. 반면 Prompt-Guard 계열은 한국어에서 무너진다.
-- **LlamaFirewall(2025, =Prompt-Guard-2)은 한국어에서 비기능적** — 최신 에이전틱 보안 프레임워크의
-  인젝션 엔진인데 평문 한국어 인젝션조차 13.7%만 잡고(직접 `이전 지시 무시`는 잡으나 roleplay/DAN·
-  간접·번역체는 놓침), 난독에선 **4.5%** 로 붕괴. v1(Prompt-Guard-86M)의 평문 84% 는 **FPR 79%**
+- **LlamaFirewall(2025, =Prompt-Guard-2)은 한국어에 취약** — 최신 에이전틱 보안 프레임워크의
+  인젝션 엔진인데 평문 한국어 인젝션 recall 이 13.7%(직접 `이전 지시 무시`는 잡으나 roleplay/DAN·
+  간접·번역체는 놓침), 난독에선 **4.5%** 로 더 떨어진다. v1(Prompt-Guard-86M)의 평문 84% 는 **FPR 79%**
   (정상문도 무차별 flag)로 부풀려진 값이라 실사용 불가 — 저-FPR 운영점에선 LlamaFirewall·v1 모두
   한국어 recall 이 낮다.
 - 정직한 한계: ko-prompt-guard 룰의 *절대* recall(~12%)은 낮다 — MT/의미·역할극 공격을 정밀-우선
@@ -231,7 +231,7 @@ pip install .
 **에이전틱 보안 harness 관점**: 위 protectai-deberta 는 OSS 툴킷 **LLM Guard 의 PromptInjection
 스캐너 엔진**이고, **Prompt-Guard-2 는 Meta LlamaFirewall(2025)** PromptGuard 스캐너의 엔진이다.
 즉 최신(2025) 에이전틱 보안 harness 들의 인젝션 엔진이 한국어에서 평문 13.7%·난독 4.5% recall 로
-비기능적이거나(Prompt-Guard-2/LlamaFirewall) 난독 텍스트에 무차별 반응(protectai/LLM Guard)하는
+취약하거나(Prompt-Guard-2/LlamaFirewall) 난독 텍스트에 무차별 반응(protectai/LLM Guard)하는
 자리를, ko-prompt-guard 가 `normalize()` 로 메운다. 전체 스위트 비교는 루트 `EVAL.md`.
 
 ### 하이브리드 (opt-in Tier-2 `EmbeddingReviewer`)
