@@ -213,7 +213,7 @@ pip install .
 | obf_zerowidth (제로폭) | 11.8 (0) | **0.0** | **0.0** |
 | obf_fullwidth (전각) | 11.8 (0) | 4.6 | 14.1 |
 | obf_homoglyph (키릴) | 11.8 (0) | 7.2 | 61.2 |
-| **난독 평균 recall** | **불변(~12%)** | **4.5%** | 30.6% |
+| **난독 6종 평균 recall** | **9.1%** (jamo/zw/fw/homo 4종 불변 11.8) | **4.5%** | 30.6% |
 
 - **ko-prompt-guard 룰 recall 은 난독에 *불변*** — `normalize()`가 난독을 원형으로 펴므로 평문과
   난독 변형에서 같은 recall(11.8%), **FPR 0% 일관**. 반면 Prompt-Guard 계열은 한국어에서 무너진다.
