@@ -200,26 +200,28 @@ pip install .
 - recall 이 낮은 이유는 정직하게: 이 벤치마크는 역할극·의미 기반 탈옥이 대부분인데, 결정론 가드는 그런 *의미 공격을 의도적으로 hard-block 하지 않는다*(과탐 방지). 영어 외부 수치는 *언어무관 바닥값*이며(한국어 특화 가드라 영어 인젝션엔 약하게 동작하는 게 정상), 의미 기반 공격의 recall 보강은 향후 분류기(Tier-2) 영역이다.
 - **한국어 인젝션 recall (MT proxy, 2026-06)** — 공개 native-KO 인젝션셋이 없어, deepset 인젝션을 **기계번역(MT)**으로 한국어화해 측정했다(LLM 아닌 MT 라 적대적 프롬프트를 거부·순화 없이 그대로 번역): 인젝션 recall **11.8%**(31/263), 정상 과차단 **0.0%**(0/250). ⚠️ **proxy 한계**: native-KO 아님 + MT 가 한국어 instruction-override 표면을 매끄럽게 만들 수 있어 **보수적 하한**이다. 0% over-block 이 load-bearing 신호. 재현: `eval/external_injection_ko.py`.
 
-### 경쟁군 대비 (vs meta-llama/Prompt-Guard-86M, 난독 robustness)
+### 경쟁군 대비 (vs Meta LlamaFirewall / Prompt-Guard, 난독 robustness)
 
-영어권 가드가 한국어 난독에서 무너지는지 직접 측정(`eval/bench_prompt_*.py`). 같은 한국어
-인젝션을 평문 + 난독 변형으로 만들어 injection recall 비교:
+최신 에이전틱 보안 harness **Meta LlamaFirewall(2025)** 의 인젝션 엔진(=Prompt-Guard-2)과 그 직전
+세대(Prompt-Guard-86M)가 한국어 난독에서 무너지는지 직접 측정(`eval/bench_prompt_*.py`). 같은
+한국어 인젝션을 평문 + 난독 변형으로 만들어 injection recall 비교:
 
-| variant | ko-prompt-guard 룰 (FPR) | Prompt-Guard-86M (v1) | **Prompt-Guard-2** (2025) |
+| variant | ko-prompt-guard 룰 (FPR) | **LlamaFirewall** (=Prompt-Guard-2, 2025) | Prompt-Guard-86M (v1) |
 |---|---|---|---|
-| plain_ko (평문) | 11.8 (0) | 84.4 (FPR **79**) | 13.7 (0) |
-| obf_jamo (자모분리 `ㅁㅜㅅㅣ`) | 11.8 (0) | 66.2 | 10.3 |
+| plain_ko (평문) | 11.8 (0) | 13.7 (0) | 84.4 (FPR **79**) |
+| obf_jamo (자모분리 `ㅁㅜㅅㅣ`) | 11.8 (0) | 10.3 | 66.2 |
 | obf_zerowidth (제로폭) | 11.8 (0) | **0.0** | **0.0** |
-| obf_fullwidth (전각) | 11.8 (0) | 14.1 | 4.6 |
-| obf_homoglyph (키릴) | 11.8 (0) | 61.2 | 7.2 |
-| **난독 평균 recall** | **불변(~12%)** | 30.6% | **4.5%** |
+| obf_fullwidth (전각) | 11.8 (0) | 4.6 | 14.1 |
+| obf_homoglyph (키릴) | 11.8 (0) | 7.2 | 61.2 |
+| **난독 평균 recall** | **불변(~12%)** | **4.5%** | 30.6% |
 
 - **ko-prompt-guard 룰 recall 은 난독에 *불변*** — `normalize()`가 난독을 원형으로 펴므로 평문과
   난독 변형에서 같은 recall(11.8%), **FPR 0% 일관**. 반면 Prompt-Guard 계열은 한국어에서 무너진다.
-- **Prompt-Guard-2(2025, Meta 현 SOTA)는 한국어에서 더 약하다** — 평문 한국어 인젝션조차 13.7%만
-  잡고(직접 `이전 지시 무시`는 잡으나 roleplay/DAN·간접·번역체는 놓침), 난독에선 4.5% 로 붕괴.
-  v1 의 평문 84% 는 **FPR 79%**(정상문도 무차별 flag)로 부풀려진 값이라 실사용 불가(v1↔v2 모두 저-FPR
-  운영점에선 한국어 recall 이 낮다).
+- **LlamaFirewall(2025, =Prompt-Guard-2)은 한국어에서 비기능적** — 최신 에이전틱 보안 프레임워크의
+  인젝션 엔진인데 평문 한국어 인젝션조차 13.7%만 잡고(직접 `이전 지시 무시`는 잡으나 roleplay/DAN·
+  간접·번역체는 놓침), 난독에선 **4.5%** 로 붕괴. v1(Prompt-Guard-86M)의 평문 84% 는 **FPR 79%**
+  (정상문도 무차별 flag)로 부풀려진 값이라 실사용 불가 — 저-FPR 운영점에선 LlamaFirewall·v1 모두
+  한국어 recall 이 낮다.
 - 정직한 한계: ko-prompt-guard 룰의 *절대* recall(~12%)은 낮다 — MT/의미·역할극 공격을 정밀-우선
   설계가 의도적으로 hard-block 안 하기 때문(recall 은 아래 Tier-2 영역). **차별점은 절대 recall 이
   아니라 난독 robustness(불변성)** 이며, 이는 이 가드의 존재 이유와 정확히 일치한다.
