@@ -288,26 +288,33 @@ result = hybrid_check(user_input, rv, threshold=0.60)   # check() + advisory FLA
 정량화**한다. 다양한 공격 기법을 합성(8종)해 학습한 klue/roberta 를 학습에 안 쓴 deepset 으로
 held-out 평가 — recall 만이 아니라 **FPR 까지 함께** 봐야 한다:
 
-| 방식 (학습 positive / negative) | native_test held-out | deepset(MT) | NotInject 과탐 |
+| 방식 (학습 positive / negative) | native_test recall | deepset(MT) | KO over-defense 과탐 |
 |---|---|---|---|
 | `EmbeddingReviewer` (anchor 유사도) | — | ~25% | — |
-| v1 (synth / 의료neg) | — | 99.6% (FPR **82%**) | **100%** |
-| v2 (synth / 다양neg) | — | **37%** (FPR 0%) | 85% |
-| **v3 (native+synth / 다양neg)** | **98.6%** (FPR 5.1%) | **59.3%** (FPR 0%) | 95.6% |
+| v1 (synth / 의료neg) | — | 99.6% (FPR **82%**) | — |
+| v2 (synth / 다양neg) | — | **37%** (FPR 0%) | — |
+| v3 (native+synth / 다양neg) | **98.6%** (FPR 5.1%) | 59.3% | **23.7%** |
+| **v4 (v3 + hard-negative)** | 94.4% (FPR 1.7%) | **69.2%** | **0.0%** |
 
-⚠️ **v1 의 99.6% 는 FPR 82%(정상문도 거의 다 flag)로 부풀려진 값**이다. negative 를 다양화(v2)하면
-FPR 0% 에서 진짜 recall 이 **37%** 로 드러난다 — 원인은 synth 학습분포 ↔ deepset(MT 번역체) 격차.
+⚠️ **v1 의 99.6% 는 FPR 82%(정상문도 거의 다 flag)로 부풀려진 값**. negative 다양화(v2)하면 FPR 0%
+에서 진짜 recall 이 **37%** 로 드러난다(원인: synth 학습분포 ↔ deepset(MT) 격차).
 
-→ **native-KO 인젝션(`xxxjjhhh`, 281건)을 학습 positive 에 추가(v3)하니 그 한계가 깨졌다**:
-native 분포 held-out recall **98.6%**(FPR 5.1%, 임계값 전 구간 ~98% 안정), deepset(MT)도 37→**59%**.
-즉 **"37% 천장"은 모델 한계가 아니라 native 학습데이터 부재**였음이 실증됐다(`eval/train_injection_v3.py`).
-⚠️ 단 **NotInject 과탐은 95.6% 로 잔존** — 트리거-단어 benign(영어 코딩맥락 `ignore this warning`)은
-native_ko benign 이 못 덮는 별개 hard 분포라, 거기 맞는 hard-negative 가 더 필요하다.
+→ **① 37% 천장은 데이터 문제였다**: native-KO 인젝션(`xxxjjhhh`, 281건)을 학습 positive 에 추가
+(v3)하니 native held-out recall **98.6%**, deepset(MT)도 37→59%. 모델 한계가 아니라 native 학습데이터
+부재였음 실증(`eval/train_injection_v3.py`).
+
+→ **② over-defense 도 hard-negative 로 잡힌다**: 트리거-단어 한국어 benign(`이 경고 무시해도 되나요`
+류) 을 Gemma 합성(`eval/synth_hard_neg.py`, 574건)해 학습에 추가(v4)하니 **KO over-defense 과탐
+23.7%→0.0%**(공격처럼 보이는 정상 한국어 과탐 제거), deepset 도 59→69% — native recall 만 98.6→94.4%
+소폭 trade-off(`eval/train_injection_v4.py`). ⚠️ **측정 주의**: `NotInject`(InjecGuard) 는 영어/중국어
+(한글 0%)라 한국어 klue/roberta 엔 언어혼동으로 ~100% 무차별 — over-defense 측정에 **무효**다.
+한국어 over-defense 는 한국어 트리거-단어 benign(합성 holdout + corpus mined)으로 잰다(`eval/eval_overdefense.py`).
 
 → **결론: 0% FPR 의 정밀한 룰이 신뢰 코어**, `ClassifierReviewer` 는 native 공격 recall 보강용
-advisory FLAG(높은 threshold + 룰 결합). over-defense 가 남아 단독 게이트로는 아직 쓰지 않는다.
-같은 `SemanticReviewer` seam 이라 `hybrid_check` 에 끼운다. 가중치 bring-your-own
-(`eval/train_injection.py`·`_v2`·`_v3`).
+advisory FLAG(룰 결합). v4(native+synth+hard-neg)는 native recall 94.4% × KO over-defense 0% 로
+**단독 보강 분류기로 쓸 만한 균형**에 도달 — 그래도 결정론 룰과 함께(hybrid)가 기본. 같은
+`SemanticReviewer` seam 이라 `hybrid_check` 에 끼운다. 가중치 bring-your-own
+(`eval/train_injection.py`·`_v2`·`_v3`·`_v4`).
 
 ```python
 from ko_prompt_guard import ClassifierReviewer, hybrid_check
