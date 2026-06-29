@@ -22,7 +22,7 @@ MODELS = {
     "prompt_guard_2_86m": ("project-free-llama/Llama-Prompt-Guard-2-86M", "binary1"),  # v2(2025)=LlamaFirewall 엔진, binary P1
     "qualifire_sentinel": ("qualifire/prompt-injection-sentinel", "binary1"),  # ModernBERT 2025 SOTA, {0 benign,1 jailbreak}
     "protectai_deberta": ("protectai/deberta-v3-base-prompt-injection-v2", "binary1"),
-    "ko_classifier": ("/data1/mk04/eval_external/inj_clf/final", "binary1"),
+    "ko_classifier": ("/data1/mk04/eval_external/inj_clf_v4/final", "binary1"),
 }
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
