@@ -34,8 +34,8 @@ from ko_prompt_guard import (
     scan_context as _scan_context,
 )
 
-# v4 분류기 가중치 경로 (사내 배포 시 교체). 없으면 룰-only.
-_V4_DIR = os.environ.get("KO_INJ_CLF_DIR", "/data1/mk04/eval_external/inj_clf_v4/final")
+# v4 분류기 가중치 경로 (bring-your-own; 환경변수로 지정). 미지정/부재면 룰-only graceful fallback.
+_V4_DIR = os.environ.get("KO_INJ_CLF_DIR", "")
 
 # threshold 0.5: v4 는 native recall 이 thr 0.5~0.95 전 구간 ~94% 로 안정, KO over-defense 0%.
 # advisory FLAG 라(절대 단독 BLOCK 안 함) 보수적으로 0.5 채택.

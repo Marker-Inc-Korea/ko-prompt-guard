@@ -137,10 +137,16 @@ _P1: list[tuple[re.Pattern[str], Severity]] = [
         r"(?:지시|지침|명령)(?:은|는|를|을)?\s*"
         r"[^.\n]{0,8}?"
         r"(?:무시(?!\s*하지|\s*하면|\s*해도\s*되)|잊어|잊고|잊어버려|버리고|버려)", _I), _H),
-    # --- 가짜 채팅 템플릿 구분자 주입(structural injection): 모델 전용 마커가 user 입력에
-    #     등장하면 시스템/역할 경계를 위조하려는 주입이다. 일상 텍스트엔 거의 없어 FP 낮음.
-    (re.compile(r"<\|\s*(?:im_start|im_end|system|assistant|user|endoftext)\s*\|>", _I), _H),
+    # --- 가짜 채팅 템플릿/도구 구분자 주입(structural injection): 모델 전용 마커가 입력·검색
+    #     문서·도구 출력에 등장하면 시스템/역할/도구 경계를 위조하려는 주입이다. 일상·의료
+    #     텍스트엔 거의 없어 FP 낮음. ChatML/Llama-3/python_tag 등 <|...|> 계열은 generic 으로
+    #     일반화(im_start·start_header_id·eot_id·python_tag 등 전부 커버), Gemma <start_of_turn>·
+    #     Mistral [TOOL_CALLS]·<tool_call> 은 전용 토큰으로 추가.
+    (re.compile(r"<\|\s*[\w\-]+\s*\|>", _I), _H),
     (re.compile(r"<<\s*SYS\s*>>|\[/?INST\]", _I), _H),
+    (re.compile(
+        r"<\s*/?\s*(?:start_of_turn|end_of_turn|tool_call)\s*>|"
+        r"\[\s*/?\s*TOOL_CALLS\s*\]", _I), _H),
 ]
 
 _P2: list[tuple[re.Pattern[str], Severity]] = [
@@ -434,12 +440,21 @@ _REGISTRY: list[tuple[Category, list[tuple[re.Pattern[str], Severity]]]] = [
 _ENCODING: list[tuple[re.Pattern[str], Severity]] = [
     # decode-and-run: 해독/복호/수행/처리 까지 + 어순 여유(25). '적용'은 일상 빈도가
     # 높아('디코딩해서 적용하는 스크립트') 제외. 'how-to' 의문문도 제외(학습 질문).
-    (re.compile(r"(?:디코딩|디코드|해독|복호|decode|base64|베이스\s*64)"
+    # round 보강: rot13/모스/아스키 등 인코딩 lexicon 추가(앵커·학습엔 있으나 룰에 누락이던 갭).
+    (re.compile(r"(?:디코딩|디코드|해독|복호|decode|base64|베이스\s*64|"
+                r"rot-?13|롯13|모스\s*(?:부호|코드)?|morse|아스키(?:\s*코드)?)"
                 r"(?:(?!어떻게|어케|방법|하나요|할까요|되나요|쓰나요|싶|궁금)[^.\n]){0,25}?"
                 r"(?:실행|돌려|수행|처리|run|execute)", _I), _M),
     (re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{16,}={0,2}(?![A-Za-z0-9+/])"), _M),
     (re.compile(r"(?:%[0-9A-Fa-f]{2}){4,}"), _M),
     (re.compile(r"(?:\\x[0-9A-Fa-f]{2}){4,}", _I), _M),
+    # \uXXXX 유니코드 이스케이프 연쇄(4+) — \xNN(idx 3)과 동급의 인코딩 페이로드. dev-게이트 적용.
+    (re.compile(r"(?:\\u[0-9A-Fa-f]{4}){4,}", _I), _M),
+    # 출력을 인코딩해 필터 우회('rot13/모스/아스키로 답·출력') — base64/hex 는 개발 빈도가
+    # 높아 제외(idx0 decode-and-run 이 별도 처리). rot13/모스는 정상 의료문에 없어 FP-safe.
+    (re.compile(r"(?:rot-?13|롯13|모스\s*(?:부호|코드)?|morse|아스키(?:\s*코드)?)\s*"
+                r"(?:로|으로|로써|in|using)?\s*"
+                r"(?:답(?:해|하|변)|대답|응답|출력|말해|작성|변환|인코딩)", _I), _M),
 ]
 
 
@@ -472,6 +487,8 @@ _OBEY_VERB = re.compile(
 def _scan_registry(
     text: str,
     registry: list[tuple[Category, list[tuple[re.Pattern[str], Severity]]]],
+    *,
+    apply_translation_gate: bool = True,
 ) -> list[Violation]:
     out: list[Violation] = []
     for category, pats in registry:
@@ -495,7 +512,8 @@ def _scan_registry(
         # 단, '시키는 대로 해/act on it' 같은 복종 동사가 함께면 번역을 가장한 실행
         # 요청이므로 억제하지 않는다(인용이 아니라 명령 → BLOCK 유지).
         if (
-            best is not None
+            apply_translation_gate
+            and best is not None
             and _TRANSLATION_FRAME.search(text)
             and not _OBEY_VERB.search(text)
             and (
@@ -510,18 +528,21 @@ def _scan_registry(
     return out
 
 
-def scan(text: str) -> list[Violation]:
-    """clean text 에 패턴 매칭. 카테고리별 최고 severity 매치만 보고."""
-    return _scan_registry(text, _REGISTRY)
+def scan(text: str, *, apply_translation_gate: bool = True) -> list[Violation]:
+    """clean text 에 패턴 매칭. 카테고리별 최고 severity 매치만 보고.
+
+    ``apply_translation_gate=False`` 면 번역/인용 프레이밍 억제를 끈다(scan_context 용).
+    """
+    return _scan_registry(text, _REGISTRY, apply_translation_gate=apply_translation_gate)
 
 
-def scan_foreign_literal(text: str) -> list[Violation]:
+def scan_foreign_literal(text: str, *, apply_translation_gate: bool = True) -> list[Violation]:
     """단일 스크립트 외국어 literal lexicon 만 스캔(폴딩 이전 텍스트 대상).
 
     homoglyph 폴딩이 'систем'→'cиctem' 처럼 키릴 토큰을 부분 변형해 literal 매칭을
     깨므로, guard 가 폴딩 전 정규화 텍스트로 이 함수를 따로 호출한다.
     """
-    return _scan_registry(text, _FOREIGN_LITERAL)
+    return _scan_registry(text, _FOREIGN_LITERAL, apply_translation_gate=apply_translation_gate)
 
 
 # 개발/학습 요청 신호 — 인코딩 패턴이 코딩·교육 질문에 과민하지 않도록(FP 방지).
@@ -540,15 +561,20 @@ _B64_INTENT = re.compile(
 )
 
 
-def scan_encoding(text: str) -> list[Violation]:
-    """원본 텍스트의 인코딩 페이로드 탐지(base64/hex/%xx/decode-and-run)."""
-    dev = _DEV_OR_HOWTO.search(text)
+def scan_encoding(text: str, *, apply_dev_gate: bool = True) -> list[Violation]:
+    """원본 텍스트의 인코딩 페이로드 탐지(base64/hex/%xx/decode-and-run).
+
+    ``apply_dev_gate=False`` 면 코딩·학습 질문 억제(dev/how-to)를 끈다 — 사용자 입력은
+    FP 방지로 켜두지만(기본), 검색문서·도구출력(scan_context)에선 'decode 방법 알려줘'
+    프레이밍이 곧 간접 인젝션 은닉 표면이라 억제를 풀어 명시 페이로드를 격리한다.
+    """
+    dev = _DEV_OR_HOWTO.search(text) if apply_dev_gate else None
     for idx, (pat, sev) in enumerate(_ENCODING):
         m = pat.search(text)
         if not m:
             continue
-        # decode-and-run(0)·\xNN(3): 코딩·학습 질문이면 인젝션 명령 아님 → 제외.
-        if idx in (0, 3) and dev:
+        # decode-and-run(0)·\xNN(3)·\uXXXX(4): 코딩·학습 질문이면 인젝션 명령 아님 → 제외.
+        if idx in (0, 3, 4) and dev:
             continue
         if idx == 1:
             # base64 blob: base64-ness + 인코딩 의도 필요, 무해 시그니처/개발맥락 제외.

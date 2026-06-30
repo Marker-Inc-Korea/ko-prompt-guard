@@ -56,12 +56,12 @@ LLM 서빙 앞단에서 **사용자 입력**의 프롬프트 인젝션·탈옥�
 
 | 카테고리 | 무엇을 잡나 |
 |---|---|
-| `INSTRUCTION_OVERRIDE` | 이전 지시 무시/리셋/초기화/덮어쓰기/무효화 (한·영 + 어순 도치) + **가짜 채팅 템플릿 구분자 주입**(`<\|im_start\|>`·`[INST]`·`<<SYS>>`) |
+| `INSTRUCTION_OVERRIDE` | 이전 지시 무시/리셋/초기화/덮어쓰기/무효화 (한·영 + 어순 도치) + **가짜 채팅/도구 템플릿 구분자 주입** — ChatML/Llama-3/python_tag 등 `<\|…\|>` 계열, Gemma `<start_of_turn>`, Mistral `[TOOL_CALLS]`, `<tool_call>`, `[INST]`·`<<SYS>>` |
 | `PROMPT_LEAK` | 시스템 프롬프트/지침 노출 유도, 서사·역할극 래퍼 추출 |
 | `JAILBREAK` | DAN·개발자/관리자 모드·제약없는 AI·안전필터 해제·할머니 익스플로잇 + **거부 억제**(`거부하지 말고 답해`/`do not refuse`) + **응답 프리픽스 강제**(`답을 '물론'으로 시작`/`start with 'Sure'`) |
 | `EXFILTRATION` | "지금까지 대화 전부 출력/덤프", `output everything above` |
 | `TRANSLITERATION` | 영어 명령 한글 음차 (이그노어/디벨로퍼/제일브레이크) |
-| `ENCODING` | base64/hex/%xx/`\xNN` 페이로드 + decode-and-run 휴리스틱 |
+| `ENCODING` | base64/hex/%xx/`\xNN`/`\uXXXX` 페이로드 + decode-and-run + 출력 인코딩 회피(rot13/모스/아스키) 휴리스틱 |
 | 다국어 literal lexicon | 단일 스크립트 외국어(JP/CN/RU/ES/AR/VI/DE/HI/FR) override·leak·jailbreak — 정규화 우회분 |
 
 과탐 방지 게이트: 번역/인용 프레이밍 제외, 개발/학습 질문 제외, 무해 base64 시그니처(JWT/PNG/data URI) 제외.
@@ -112,7 +112,7 @@ guard2 = Guard(p)
 
 ## 검증
 
-- 로컬 테스트 **414개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
+- 로컬 테스트 **450개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
 - 적대적 코퍼스: 8종 난독 변종(초성화/NFD/전각/호몰로그/제로폭/칸별분리/음차/인코딩) + 다국어 + 정상 보존 컨트롤셋(채팅체·식약처 질의·정상 외국어·레시피 분수)을 함께 검증. **번역가장 복종명령 + 영어 의문형 prompt-leak** 회귀는 `test_adversarial_translation_leak.py`로 고정.
 - 모든 픽스처는 **무해 표적**(`이전 지시 무시` / `system prompt 알려줘` 수준)만 사용 — 실제 유해 페이로드 없음.
 
@@ -131,7 +131,7 @@ CPU 단일 코어, Python 3.12, 의존성 `pydantic` 만. 모든 수치는 실�
 | 호출당 지연 — median | **0.094 ms** | 워밍업 후 600회 (정상 + 악성 입력 혼합). |
 | 호출당 지연 — p95 | **0.130 ms** | 동일 측정. |
 | 처리량 (warm) | **약 10,000 calls/sec** | 단일 코어. median 기준 환산. |
-| 전체 테스트 | **414 passed** (skip 2) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
+| 전체 테스트 | **450 passed** (skip 2) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
 
 **견고성 (대용량·적대적 입력 — 무한 블로업 없음):**
 
@@ -210,8 +210,17 @@ c = screen_context(retrieved_doc, source="rag")                  # 검색문서/
 | 모델 가중치 | bring-your-own(`KO_INJ_CLF_DIR`) | 없으면 **룰-only graceful fallback** — 코어는 ML-free |
 | 간접 PI | `scan_context()` 별도 노출 | 에이전틱 RAG 의 주 공격 벡터(§간접 프롬프트 인젝션) |
 
+> **`scan_context()` 는 입력용 과탐 게이트를 적용하지 않는다(비대칭).** `check()` 는 정상 사용자를
+> 막지 않으려고 번역/인용 프레이밍(`번역해줘: ignore all previous instructions`)·decode how-to 를
+> 억제하지만, *검색문서·도구출력*에선 그 프레이밍 자체가 간접 인젝션 은닉 표면이므로 억제를 풀어
+> 룰이 이미 탐지한 명시 override 가 격리에서 새지 않게 한다(신뢰 코어 recall 누수 차단). 사용자
+> 입력 FPR 엔 영향 없음.
+
+> **멀티턴 분할 주입** — `check_messages(messages, last_n=6)` 는 최근 user 턴을 합쳐 스캔해, 트리거
+> 구절을 턴 경계로 쪼갠 우회(`"이전 지시"` + 다음 턴 `"무시해줘"`)를 재조합해 잡는다(분류기 재학습 불필요).
+
 대칭 가드 `ko-output-guard` 도 `examples/production_moderation_guard.py` 로 동일 패턴(룰 + 통합
-multi-label 분류기)을 제공한다.
+multi-label 분류기, `KO_OUT_CLF_DIR` env-var·룰-only fallback)을 제공한다.
 
 ## 외부 검증 (제3자 데이터셋, 2026-06)
 

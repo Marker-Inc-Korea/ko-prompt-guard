@@ -13,7 +13,7 @@ ko-pii 의 자매 — 같은 철학(강한 결정론 코어 + ML/LLM 분리)에 
 """
 from __future__ import annotations
 
-from .guard import Guard, check, scan_context
+from .guard import Guard, check, check_messages, scan_context
 from .normalize import normalize
 from .policy import GuardPolicy
 from .result import (
@@ -53,6 +53,7 @@ __all__ = [
     "Verdict",
     "Violation",
     "check",
+    "check_messages",
     "scan_context",
     "default_anchors",
     "hybrid_check",

@@ -243,19 +243,37 @@ def hybrid_check(
     path). Otherwise scores the normalized text; if ``risk > threshold`` upgrades a
     SAFE result to **FLAG** (advisory) with a SEMANTIC violation carrying the score.
     Never hard-BLOCKs on the reviewer alone (semantic.py contract).
-    """
-    from .guard import check
 
-    r = check(text, context)
+    ``context`` (검색문서·도구출력 등 비-사용자 콘텐츠)가 주어지면 ``scan_context`` 로 간접
+    프롬프트 인젝션을 함께 스캔해, 오염되면 advisory **FLAG** 로 접고 그 신호를 violations 에
+    합친다(컨텍스트만으로 hard-BLOCK 하지 않음).
+    """
+    from .guard import check, scan_context
+
+    # NOTE: 이전엔 check(text, context) 로 호출해 context 가 policy 슬롯에 들어가 크래시(또는
+    # 무시)되는 dead/footgun 파라미터였다. 이제 scan_context 로 실제 배선한다.
+    r = check(text)
+    ctx_pi: tuple[Violation, ...] = ()
+    if context is not None:
+        cs = scan_context(context)
+        if cs.poisoned:
+            ctx_pi = cs.violations
+
     if r.verdict is not Verdict.ALLOW:
-        return r
+        # 룰이 이미 잡았으면 그대로 — 단 context 오염 신호가 있으면 합쳐 반환.
+        return r.model_copy(update={"violations": r.violations + ctx_pi}) if ctx_pi else r
+
     risk = reviewer.review(r.normalized_text or text, r)
-    if risk <= threshold:
+    if risk <= threshold and not ctx_pi:
         return r
-    v = Violation(
-        code="semantic_similarity",
-        category=Category.SEMANTIC,
-        severity=Severity.MEDIUM,
-        reason=f"semantic similarity to known attacks (risk={risk:.2f} > {threshold})",
-    )
-    return r.model_copy(update={"verdict": Verdict.FLAG, "violations": r.violations + (v,)})
+    new_viol = r.violations + ctx_pi
+    if risk > threshold:
+        new_viol = new_viol + (
+            Violation(
+                code="semantic_similarity",
+                category=Category.SEMANTIC,
+                severity=Severity.MEDIUM,
+                reason=f"semantic similarity to known attacks (risk={risk:.2f} > {threshold})",
+            ),
+        )
+    return r.model_copy(update={"verdict": Verdict.FLAG, "violations": new_viol})

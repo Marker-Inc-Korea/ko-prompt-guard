@@ -40,13 +40,22 @@ class Guard:
     def __init__(self, policy: GuardPolicy | None = None) -> None:
         self.policy = policy or GuardPolicy()
 
-    def check(self, text: str) -> GuardResult:
-        if not isinstance(text, str):
-            raise TypeError(f"check() expects str, got {type(text).__name__}")
+    def _collect(
+        self, text: str, *, apply_input_fp_gates: bool = True
+    ) -> tuple[list[Violation], str, bool]:
+        """정규화 + 전체 탐지기 파이프라인. (violations, normalized, changed) 반환.
+
+        ``apply_input_fp_gates`` 는 *사용자 입력* 전용 오탐 억제(번역/인용 프레이밍, decode
+        how-to)를 켤지다. check() 는 켠다(기본). scan_context() 는 끈다 — 검색문서·도구출력에선
+        그 프레이밍 자체가 간접 인젝션 은닉 표면이라, 룰이 이미 잡은 명시 override 가 억제로
+        새는 것을 막는다(신뢰 코어 recall 누수 차단). 사용자 입력 FPR 엔 영향 없음.
+        """
         policy = self.policy
         normalized, changed = normalize(text, policy)
 
-        violations: list[Violation] = list(patterns.scan(normalized))
+        violations: list[Violation] = list(
+            patterns.scan(normalized, apply_translation_gate=apply_input_fp_gates)
+        )
         # 단일 스크립트 외국어 literal lexicon 은 '폴딩 이전' 텍스트로 한 번 더 스캔한다.
         # homoglyph 단일 스크립트 폴딩(PG-2)이 'систем'→'cиctem' 처럼 키릴 토큰을
         # 부분 변형해 literal 매칭을 깨기 때문. 폴딩 끈 정규화는 멱등하고 부작용이 없다.
@@ -54,12 +63,16 @@ class Guard:
             pre_fold, _ = normalize(text, policy.model_copy(update={"fold_homoglyphs": False}))
             if pre_fold != normalized:
                 seen_fl = {(v.category, v.code) for v in violations}
-                for v in patterns.scan_foreign_literal(pre_fold):
+                for v in patterns.scan_foreign_literal(
+                    pre_fold, apply_translation_gate=apply_input_fp_gates
+                ):
                     if (v.category, v.code) not in seen_fl:
                         violations.append(v)
                         seen_fl.add((v.category, v.code))
         if policy.detect_encoding:
-            violations.extend(patterns.scan_encoding(text))
+            violations.extend(
+                patterns.scan_encoding(text, apply_dev_gate=apply_input_fp_gates)
+            )
         # leetspeak 보강: 숫자→글자 디코드본에서 '추가로' 잡히는 공격만 더한다. 원본
         # FLAG/was_obfuscated 에는 영향 없음(정상 'mp3'/'버전3' 과탐 방지).
         if policy.de_leet:
@@ -67,10 +80,17 @@ class Guard:
             for deleeted in deleet_variants(normalized):
                 if deleeted == normalized:
                     continue
-                for v in patterns.scan(deleeted):
+                for v in patterns.scan(deleeted, apply_translation_gate=apply_input_fp_gates):
                     if (v.category, v.code) not in seen:
                         violations.append(v)
                         seen.add((v.category, v.code))
+        return violations, normalized, changed
+
+    def check(self, text: str) -> GuardResult:
+        if not isinstance(text, str):
+            raise TypeError(f"check() expects str, got {type(text).__name__}")
+        policy = self.policy
+        violations, normalized, changed = self._collect(text)
 
         blocking = [
             v
@@ -111,17 +131,43 @@ class Guard:
         (해당 콘텐츠를 신뢰/주입하지 말 것). 검색 콘텐츠의 인젝션 패턴은 FLAG 수준 약신호라도
         격리 대상이므로 FLAG/BLOCK 을 모두 ``poisoned`` 로 본다.
         """
-        result = self.check(content)
-        pi = tuple(v for v in result.violations if v.category in _INDIRECT_PI_CATEGORIES)
+        # 입력용 FP 게이트를 끄고 수집 — 검색문서/도구출력에선 '번역/디코딩 방법' 프레이밍이
+        # 곧 간접 인젝션 은닉 표면이라, 룰이 이미 탐지한 명시 override 가 격리에서 새지 않게 한다.
+        violations, normalized, changed = self._collect(content, apply_input_fp_gates=False)
+        pi = tuple(v for v in violations if v.category in _INDIRECT_PI_CATEGORIES)
         poisoned = bool(pi)
         return ContextScanResult(
             poisoned=poisoned,
             source=source,
             recommendation="quarantine" if poisoned else "use",
-            normalized_text=result.normalized_text,
+            normalized_text=normalized,
             violations=pi,
-            was_obfuscated=result.was_obfuscated,
+            was_obfuscated=changed,
         )
+
+    def check_messages(
+        self,
+        messages: "list[str | dict]",
+        *,
+        last_n: int = 6,
+        roles: tuple[str, ...] = ("user",),
+    ) -> GuardResult:
+        """멀티턴 대화를 *합쳐서* 스캔 — 턴 경계로 쪼갠 분할 주입 우회를 막는다.
+
+        per-turn 스캔은 ('이전 지시' 한 턴 + '무시해줘' 다음 턴)처럼 트리거 구절을 턴 경계로
+        분할하면 각 턴이 ALLOW 로 새지만, 합치면 룰이 잡는다. 최근 ``last_n`` 개 ``roles`` 턴을
+        공백으로 이어 붙인 뒤 기존 normalize+scan 을 재사용한다(분류기 재학습 불필요).
+
+        ``messages`` 는 OpenAI chat 형식 ``[{"role","content"}, ...]`` 또는 문자열 리스트.
+        """
+        texts: list[str] = []
+        for m in messages:
+            if isinstance(m, str):
+                texts.append(m)
+            elif isinstance(m, dict) and m.get("role") in roles and m.get("content"):
+                texts.append(str(m["content"]))
+        # 공백 결합: '\n' 은 일부 패턴의 [^.\n] 클래스에 막혀 재조합이 안 되므로 공백으로 잇는다.
+        return self.check(" ".join(texts[-last_n:]))
 
 
 def check(text: str, policy: GuardPolicy | None = None) -> GuardResult:
@@ -132,3 +178,14 @@ def check(text: str, policy: GuardPolicy | None = None) -> GuardResult:
 def scan_context(content: str, policy: GuardPolicy | None = None, *, source: str = "context") -> ContextScanResult:
     """모듈 레벨 편의 함수 — Guard(policy).scan_context(content). 간접 PI(검색문서/도구출력) 스캔."""
     return Guard(policy).scan_context(content, source=source)
+
+
+def check_messages(
+    messages: "list[str | dict]",
+    policy: GuardPolicy | None = None,
+    *,
+    last_n: int = 6,
+    roles: tuple[str, ...] = ("user",),
+) -> GuardResult:
+    """모듈 레벨 편의 함수 — Guard(policy).check_messages(...). 멀티턴 분할 주입 방지."""
+    return Guard(policy).check_messages(messages, last_n=last_n, roles=roles)
