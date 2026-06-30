@@ -320,7 +320,8 @@ held-out 평가 — recall 만이 아니라 **FPR 까지 함께** 봐야 한다:
 | v1 (synth / 의료neg) | — | 99.6% (FPR **82%**) | — |
 | v2 (synth / 다양neg) | — | **37%** (FPR 0%) | — |
 | v3 (native+synth / 다양neg) | **98.6%** (FPR 5.1%) | 59.3% | **23.7%** |
-| **v4 (v3 + hard-negative)** | 94.4% (FPR 1.7%) | **69.2%** | **0.0%** |
+| v4 (v3 + hard-negative) | 94.4% (FPR 1.7%) | 69.2% | **0.0%** |
+| **v5 (+MT 영어셋·oss합성, 4,046)** | **95.8%** (FPR 5.1%) | **94.3%** | **0.0%** |
 
 ⚠️ **v1 의 99.6% 는 FPR 82%(정상문도 거의 다 flag)로 부풀려진 값**. negative 다양화(v2)하면 FPR 0%
 에서 진짜 recall 이 **37%** 로 드러난다(원인: synth 학습분포 ↔ deepset(MT) 격차).
@@ -336,11 +337,17 @@ held-out 평가 — recall 만이 아니라 **FPR 까지 함께** 봐야 한다:
 (한글 0%)라 한국어 klue/roberta 엔 언어혼동으로 ~100% 무차별 — over-defense 측정에 **무효**다.
 한국어 over-defense 는 한국어 트리거-단어 benign(합성 holdout + corpus mined)으로 잰다(`eval/eval_overdefense.py`).
 
-→ **결론: 0% FPR 의 정밀한 룰이 신뢰 코어**, `ClassifierReviewer` 는 native 공격 recall 보강용
-advisory FLAG(룰 결합). v4(native+synth+hard-neg)는 native recall 94.4% × KO over-defense 0% 로
-**단독 보강 분류기로 쓸 만한 균형**에 도달 — 그래도 결정론 룰과 함께(hybrid)가 기본. 같은
-`SemanticReviewer` seam 이라 `hybrid_check` 에 끼운다. 가중치 bring-your-own
-(`eval/train_injection.py`·`_v2`·`_v3`·`_v4`).
+→ **③ 데이터 더 긁으면 MT 분포도 메운다(v5)**: 영어 공개 인젝션셋(deepset/xTRam1/jayavibhav)을
+oss-120b 로 한국어 MT 번역(511) + 추가 합성을 학습에 넣으니 **deepset(MT) 69→94.3%** 로 도약하고
+native 95.8%·over-defense 0% 유지(총 4,046건, `eval/train_injection_v5.py`·`build_v5_corpus.py`·
+`oss_translate.py`). native+MT 양쪽에서 강한 분류기. (흥미로운 발견: 안전정렬이 강한 oss-120b 는
+*레드팀 공격 생성을 거부*해 합성량이 적었다 — Gemma 31B 가 합성엔 더 유리.)
+
+→ **결론: 0% FPR 의 정밀한 룰이 신뢰 코어**, `ClassifierReviewer` 는 공격 recall 보강용 advisory
+FLAG(룰 결합). v5(native+MT+합성)는 native 95.8% × deepset 94.3% × KO over-defense 0% 로 native·MT
+양쪽 강함 — 그래도 결정론 룰과 함께(hybrid)가 기본. 같은 `SemanticReviewer` seam 이라 `hybrid_check`
+에 끼운다. 가중치 bring-your-own(`eval/train_injection.py`·`_v2`~`_v5`). 공개 모델 카드는
+`ko_injection_guard_release/`(CC-BY-SA-4.0, base klue + CC-BY-SA negative 전파).
 
 ```python
 from ko_prompt_guard import ClassifierReviewer, hybrid_check
