@@ -352,8 +352,15 @@ Gemma 로 그 두 패턴을 타겟 합성(hard-neg 537 + pos 668, `eval/synth_v6
 > 요청 등)로 명백한 오류가 아니다 — 더 학습해도 깨끗이 안 잡히는 수렴점. **2.9% over-defense 는
 > mined 셋 n=34 의 1건이라 통계적으로 약함.
 
+→ **⑤ 수렴 검증(데이터 더 긁어도 안 오른다)**: native 인젝션을 더 발굴(RICoTA 609·LLM-HACK·
+prismdata 13만+ INJECTION)해 v6 를 **학습에 전혀 안 쓴 prismdata 3,000건**으로 평가하니 recall
+**99.9%** — 작은 native test(130)에 과적합이 아니라 여러 한국어 인젝션 분포에 일반화한다. prism
+2,000건을 *학습에 추가*(v7)해도 native 100→98.6·deepset 95.8→93.5 로 오히려 소폭 하락(MT-style
+분포 희석) — **v6 가 수렴점**. native 한국어 인젝션 데이터는 희소하나(4개 앵글 확인), v6 는 이미
+강건하다.
+
 → **결론: 0% FPR 의 정밀한 룰이 신뢰 코어**, `ClassifierReviewer` 는 공격 recall 보강용 advisory
-FLAG(룰 결합). v6(native+MT+타겟합성)는 native 100% × deepset 95.8% 로 native·MT·문맥 양쪽 강함 —
+FLAG(룰 결합). v6(native+MT+타겟합성)는 native 100% × **prism 외부 99.9%** × deepset 95.8% 로 강건 —
 그래도 결정론 룰과 함께(hybrid)가 기본. 같은 `SemanticReviewer` seam 이라 `hybrid_check` 에 끼운다.
 가중치 bring-your-own(`eval/train_injection.py`·`_v2`~`_v6`). 공개 모델 카드는
 `ko_injection_guard_release/`(CC-BY-SA-4.0, base klue + CC-BY-SA negative 전파).
