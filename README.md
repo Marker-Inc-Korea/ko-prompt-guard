@@ -321,7 +321,8 @@ held-out 평가 — recall 만이 아니라 **FPR 까지 함께** 봐야 한다:
 | v2 (synth / 다양neg) | — | **37%** (FPR 0%) | — |
 | v3 (native+synth / 다양neg) | **98.6%** (FPR 5.1%) | 59.3% | **23.7%** |
 | v4 (v3 + hard-negative) | 94.4% (FPR 1.7%) | 69.2% | **0.0%** |
-| **v5 (+MT 영어셋·oss합성, 4,046)** | **95.8%** (FPR 5.1%) | **94.3%** | **0.0%** |
+| v5 (+MT 영어셋·oss합성, 4,046) | 95.8% (FPR 5.1%) | 94.3% | 0.0% |
+| **v6 (+문맥혼동 hard-neg·간접공격, 5,130)** | **100%** (FPR 5.1%*) | **95.8%** (FPR 1.0) | 2.9%** |
 
 ⚠️ **v1 의 99.6% 는 FPR 82%(정상문도 거의 다 flag)로 부풀려진 값**. negative 다양화(v2)하면 FPR 0%
 에서 진짜 recall 이 **37%** 로 드러난다(원인: synth 학습분포 ↔ deepset(MT) 격차).
@@ -343,10 +344,18 @@ native 95.8%·over-defense 0% 유지(총 4,046건, `eval/train_injection_v5.py`�
 `oss_translate.py`). native+MT 양쪽에서 강한 분류기. (흥미로운 발견: 안전정렬이 강한 oss-120b 는
 *레드팀 공격 생성을 거부*해 합성량이 적었다 — Gemma 31B 가 합성엔 더 유리.)
 
+→ **④ 오류분석으로 약점 타겟(v6)**: v5 오류분석에서 (i) *문맥혼동 FP*(사람 맥락의 '상사가 이전
+지시 무시'를 인젝션 오탐), (ii) *간접·교육 프레이밍 FN*('필터 우회 방법', 아첨+주제전환)을 발견 →
+Gemma 로 그 두 패턴을 타겟 합성(hard-neg 537 + pos 668, `eval/synth_v6_targeted.py`)해 추가. v6 는
+**native recall 100% × deepset 95.8%(FPR 1%)** 이고 문맥혼동 케이스를 0.001 로 정확히 분류한다.
+> *남은 native FPR 5.1%(3/59)는 라벨 경계의 모호한 케이스(payload 처리 질문, system 구조 출력
+> 요청 등)로 명백한 오류가 아니다 — 더 학습해도 깨끗이 안 잡히는 수렴점. **2.9% over-defense 는
+> mined 셋 n=34 의 1건이라 통계적으로 약함.
+
 → **결론: 0% FPR 의 정밀한 룰이 신뢰 코어**, `ClassifierReviewer` 는 공격 recall 보강용 advisory
-FLAG(룰 결합). v5(native+MT+합성)는 native 95.8% × deepset 94.3% × KO over-defense 0% 로 native·MT
-양쪽 강함 — 그래도 결정론 룰과 함께(hybrid)가 기본. 같은 `SemanticReviewer` seam 이라 `hybrid_check`
-에 끼운다. 가중치 bring-your-own(`eval/train_injection.py`·`_v2`~`_v5`). 공개 모델 카드는
+FLAG(룰 결합). v6(native+MT+타겟합성)는 native 100% × deepset 95.8% 로 native·MT·문맥 양쪽 강함 —
+그래도 결정론 룰과 함께(hybrid)가 기본. 같은 `SemanticReviewer` seam 이라 `hybrid_check` 에 끼운다.
+가중치 bring-your-own(`eval/train_injection.py`·`_v2`~`_v6`). 공개 모델 카드는
 `ko_injection_guard_release/`(CC-BY-SA-4.0, base klue + CC-BY-SA negative 전파).
 
 ```python
