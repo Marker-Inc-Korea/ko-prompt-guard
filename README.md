@@ -282,6 +282,23 @@ multi-label 분류기, `KO_OUT_CLF_DIR` env-var·룰-only fallback)을 제공한
 > recall 89.7%(FPR **61.6%**)지만 자모분리 난독에서 22.4% 로 붕괴(난독 평균 55.5%) — 영어계 SOTA
 > 도 한국어 난독엔 약하고 과탐이 크다.
 
+### Frontier 다국어 가드 대비 (vs Qwen3Guard-Gen-4B)
+
+LLM 기반 생성형 다국어 가드 **Qwen3Guard-Gen-4B**(Qwen, 2025-10, 119개 언어)를 native-KO 인젝션
+셋(`ko_injection_eval`, 인젝션 263/정상 250)에 동일 채점(`eval/qwen3guard_eval.py`, ko-guard 측
+`eval/ko_guard_3axis.py` — 룰 + v6 분류기 hybrid):
+
+| | injection recall / FPR |
+|---|---|
+| ko-prompt-guard (룰+분류기 hybrid) | **90.1 / 22.8** |
+| Qwen3Guard Unsafe | 31.2 / 0.0 |
+| Qwen3Guard +Controversial | 57.0 |
+
+frontier 4B 다국어 가드도 native-KO 인젝션을 strict(Unsafe)에선 **31.2%** 로만 잡고(Controversial
+포함 57.0%), ko-prompt-guard hybrid(**90.1%**)의 절반 수준. Qwen3Guard 는 severe 만 Unsafe 로 두어
+한국어 인젝션 다수를 Controversial 로 저평가한다 — **최신 frontier 다국어 가드도 한국어 전용 튜닝
+없이는 인젝션 recall 이 크게 낮음**을 재확인(전체 3축은 루트 `EVAL.md`).
+
 ### 과탐(over-defense) — NotInject
 
 `InjecGuard/NotInject`(339건, 인젝션 트리거 단어를 포함하지만 **전부 정상**인 프롬프트 — 예
