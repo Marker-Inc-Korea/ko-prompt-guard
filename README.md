@@ -56,7 +56,7 @@ LLM 서빙 앞단에서 **사용자 입력**의 프롬프트 인젝션·탈옥�
 
 | 카테고리 | 무엇을 잡나 |
 |---|---|
-| `INSTRUCTION_OVERRIDE` | 이전 지시 무시/리셋/초기화/덮어쓰기/무효화 (한·영 + 어순 도치) + **가짜 채팅/도구 템플릿 구분자 주입** — ChatML/Llama-3/python_tag 등 `<\|…\|>` 계열, Gemma `<start_of_turn>`, Mistral `[TOOL_CALLS]`, `<tool_call>`, `[INST]`·`<<SYS>>` |
+| `INSTRUCTION_OVERRIDE` | 이전 지시 무시/리셋/초기화/덮어쓰기/무효화 + **goal-hijack**('이전 목표·목적·임무 잊고 새로', 한정사+pivot 게이트) (한·영 + 어순 도치) + **가짜 채팅/도구 템플릿 구분자 주입** — ChatML/Llama-3/python_tag 등 `<\|…\|>` 계열, Gemma `<start_of_turn>`, Mistral `[TOOL_CALLS]`, `<tool_call>`, `[INST]`·`<<SYS>>` |
 | `PROMPT_LEAK` | 시스템 프롬프트/지침 노출 유도, 서사·역할극 래퍼 추출 |
 | `JAILBREAK` | DAN·개발자/관리자 모드·제약없는 AI·안전필터 해제·할머니 익스플로잇 + **거부 억제**(`거부하지 말고 답해`/`do not refuse`) + **응답 프리픽스 강제**(`답을 '물론'으로 시작`/`start with 'Sure'`) |
 | `EXFILTRATION` | "지금까지 대화 전부 출력/덤프", `output everything above` |
@@ -112,7 +112,7 @@ guard2 = Guard(p)
 
 ## 검증
 
-- 로컬 테스트 **450개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
+- 로컬 테스트 **459개 통과** (`pytest`, 결정론·정규화·견고성 + **적대적 입력 회귀 테스트 포함**).
 - 적대적 코퍼스: 8종 난독 변종(초성화/NFD/전각/호몰로그/제로폭/칸별분리/음차/인코딩) + 다국어 + 정상 보존 컨트롤셋(채팅체·식약처 질의·정상 외국어·레시피 분수)을 함께 검증. **번역가장 복종명령 + 영어 의문형 prompt-leak** 회귀는 `test_adversarial_translation_leak.py`로 고정.
 - 모든 픽스처는 **무해 표적**(`이전 지시 무시` / `system prompt 알려줘` 수준)만 사용 — 실제 유해 페이로드 없음.
 
@@ -131,7 +131,7 @@ CPU 단일 코어, Python 3.12, 의존성 `pydantic` 만. 모든 수치는 실�
 | 호출당 지연 — median | **0.094 ms** | 워밍업 후 600회 (정상 + 악성 입력 혼합). |
 | 호출당 지연 — p95 | **0.130 ms** | 동일 측정. |
 | 처리량 (warm) | **약 10,000 calls/sec** | 단일 코어. median 기준 환산. |
-| 전체 테스트 | **450 passed** (skip 2) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
+| 전체 테스트 | **459 passed** (skip 2) | `pytest -q`, 결정론·정규화·견고성·적대적 회귀 포함. |
 
 **견고성 (대용량·적대적 입력 — 무한 블로업 없음):**
 
@@ -302,10 +302,12 @@ frontier 4B 다국어 가드도 native-KO 인젝션을 strict(Unsafe)에선 **31
 > 분류기 버전 주: 위 hybrid 는 **v8 분류기**(Dolly everyday MT hard-benign 보강)다. v6(recall 90.1/
 > FPR 22.8)는 everyday 한국어 질의에 과탐이 컸는데, over-flag 분포와 매칭되는 everyday instruction
 > 2,195건(Dolly→한국어 MT)을 hard-negative 로 추가해 **balanced-셋 FPR 22.8→3.2%(−19.6pp)** 로 낮췄다.
-> **native 공격 recall 은 97.2%(held-out `native_test`)로 보존**. 대신 MT-deepset(영어 인젝션→한국어
-> 번역, proxy) 결합 recall 이 90.1→71.1 로 하락하는 recall↔FPR 트레이드오프가 있으나, MT-proxy 는
-> 보수적 하한이고 한국어 배포의 실제 위협은 native 라 배포 기준으론 v8 이 유리하다. (전체 3축·MT-vs-native
-> 분석은 루트 `EVAL.md`.)
+> native 공격 recall 은 97.2%(held-out `native_test`)로 보존되나, **이는 학습 native positive 와 같은
+> 소스계열의 in-distribution held-out 이라 실세계 recall 상한이 아니다** — 분포 밖 recall 의 정직한
+> 하한은 MT-deepset(영어 인젝션→한국어 번역) 결합 **71.1%**(v6 90.1 대비 하락)로 보는 게 맞다. 즉 v8 은
+> everyday 오탐(FPR 22.8→3.2)과 분포밖 recall(90.1→71.1)을 맞바꾼 것 — 저-FPR 이 필요한 배포엔 v8,
+> 최대 recall 이 필요하면 v6, 중간 균형은 Dolly~500(≈84/13, EVAL.md 프론티어). goal-hijack 등 의미공격은
+> 결정론 룰 백스톱(§룰)이 분류기와 무관하게 잡는다. (전체 프론티어·MT-vs-native 분석은 루트 `EVAL.md`.)
 
 ### 과탐(over-defense) — NotInject
 
