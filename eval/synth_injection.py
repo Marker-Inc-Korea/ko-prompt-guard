@@ -11,13 +11,15 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 sys.path.insert(0, "/data1/mk04/eval_external")
 import gemma_client as gc
 
 ANCHORS = "/data1/mk04/eval_external/modak_pub/ko-prompt-guard/src/ko_prompt_guard/data/injection_anchors.json"
-QTAOA = "/data1/mk04/medi/agentic_v3/data/qtaoa_combined.jsonl"
+QTAOA = os.environ.get("KO_GUARD_BENIGN_CORPUS",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/benign_ko_sample.jsonl"))
 OUT = "/data1/mk04/eval_external/inj_train.jsonl"
 
 TECHNIQUES = {

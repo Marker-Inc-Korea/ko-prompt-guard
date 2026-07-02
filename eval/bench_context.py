@@ -10,6 +10,7 @@ scan_context() 가 격리(quarantine)하는지 측정. 평문 + 난독(자모분
 from __future__ import annotations
 
 import json
+import os
 import random
 import sys
 
@@ -19,7 +20,8 @@ from ko_prompt_guard import Guard
 random.seed(7)
 G = Guard()
 KO_INJ = "/data1/mk04/eval_external/ko_injection_eval.jsonl"
-QTAOA = "/data1/mk04/medi/agentic_v3/data/qtaoa_combined.jsonl"
+QTAOA = os.environ.get("KO_GUARD_BENIGN_CORPUS",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/benign_ko_sample.jsonl"))
 ZW = "​"
 
 
