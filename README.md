@@ -286,18 +286,26 @@ multi-label 분류기, `KO_OUT_CLF_DIR` env-var·룰-only fallback)을 제공한
 
 LLM 기반 생성형 다국어 가드 **Qwen3Guard-Gen-4B**(Qwen, 2025-10, 119개 언어)를 native-KO 인젝션
 셋(`ko_injection_eval`, 인젝션 263/정상 250)에 동일 채점(`eval/qwen3guard_eval.py`, ko-guard 측
-`eval/ko_guard_3axis.py` — 룰 + v6 분류기 hybrid):
+`eval/ko_guard_3axis.py` — 룰 + 분류기 hybrid):
 
 | | injection recall / FPR |
 |---|---|
-| ko-prompt-guard (룰+분류기 hybrid) | **90.1 / 22.8** |
+| ko-prompt-guard (룰+분류기 hybrid) | **71.1 / 3.2** |
 | Qwen3Guard Unsafe | 31.2 / 0.0 |
 | Qwen3Guard +Controversial | 57.0 |
 
 frontier 4B 다국어 가드도 native-KO 인젝션을 strict(Unsafe)에선 **31.2%** 로만 잡고(Controversial
-포함 57.0%), ko-prompt-guard hybrid(**90.1%**)의 절반 수준. Qwen3Guard 는 severe 만 Unsafe 로 두어
+포함 57.0%), ko-prompt-guard hybrid(**71.1%**)보다 낮다. Qwen3Guard 는 severe 만 Unsafe 로 두어
 한국어 인젝션 다수를 Controversial 로 저평가한다 — **최신 frontier 다국어 가드도 한국어 전용 튜닝
-없이는 인젝션 recall 이 크게 낮음**을 재확인(전체 3축은 루트 `EVAL.md`).
+없이는 인젝션 recall 이 낮음**을 재확인.
+
+> 분류기 버전 주: 위 hybrid 는 **v8 분류기**(Dolly everyday MT hard-benign 보강)다. v6(recall 90.1/
+> FPR 22.8)는 everyday 한국어 질의에 과탐이 컸는데, over-flag 분포와 매칭되는 everyday instruction
+> 2,195건(Dolly→한국어 MT)을 hard-negative 로 추가해 **balanced-셋 FPR 22.8→3.2%(−19.6pp)** 로 낮췄다.
+> **native 공격 recall 은 97.2%(held-out `native_test`)로 보존**. 대신 MT-deepset(영어 인젝션→한국어
+> 번역, proxy) 결합 recall 이 90.1→71.1 로 하락하는 recall↔FPR 트레이드오프가 있으나, MT-proxy 는
+> 보수적 하한이고 한국어 배포의 실제 위협은 native 라 배포 기준으론 v8 이 유리하다. (전체 3축·MT-vs-native
+> 분석은 루트 `EVAL.md`.)
 
 ### 과탐(over-defense) — NotInject
 
