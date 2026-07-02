@@ -204,9 +204,9 @@ c = screen_context(retrieved_doc, source="rag")                  # 검색문서/
 
 | 항목 | 선택 | 근거 |
 |---|---|---|
-| Tier-2 모델 | `inj_clf` **v4** (native+synth+hard-neg) | native recall 94.4% · KO over-defense 0% (§검증) |
+| Tier-2 모델 | `inj_clf` **v8** (native+synth+hard-neg + everyday hard-benign) | native recall 97.2% · everyday FPR 3.2% (§검증) |
 | 결합 방식 | **hybrid** — 룰 우선 BLOCK, 통과분만 분류기 advisory FLAG | 룰=난독 floor·0% FPR, 모델=native recall(상보적) |
-| threshold | 0.5 | native recall thr 0.5~0.95 안정·over-defense 0% |
+| threshold | 0.5 | native recall thr 0.5~0.95 안정 |
 | 모델 가중치 | bring-your-own(`KO_INJ_CLF_DIR`) | 없으면 **룰-only graceful fallback** — 코어는 ML-free |
 | 간접 PI | `scan_context()` 별도 노출 | 에이전틱 RAG 의 주 공격 벡터(§간접 프롬프트 인젝션) |
 
@@ -356,7 +356,8 @@ held-out 평가 — recall 만이 아니라 **FPR 까지 함께** 봐야 한다:
 | v3 (native+synth / 다양neg) | **98.6%** (FPR 5.1%) | 59.3% | **23.7%** |
 | v4 (v3 + hard-negative) | 94.4% (FPR 1.7%) | 69.2% | **0.0%** |
 | v5 (+MT 영어셋·oss합성, 4,046) | 95.8% (FPR 5.1%) | 94.3% | 0.0% |
-| **v6 (+문맥혼동 hard-neg·간접공격, 5,130)** | **100%** (FPR 5.1%*) | **95.8%** (FPR 1.0) | 2.9%** |
+| v6 (+문맥혼동 hard-neg·간접공격, 5,130) | **100%** (FPR 5.1%*) | **95.8%** (FPR 1.0) | 2.9%** |
+| **v8 (+everyday hard-benign, 7,895)** | **97.2%** | 92.8% | 2.9% |
 
 ⚠️ **v1 의 99.6% 는 FPR 82%(정상문도 거의 다 flag)로 부풀려진 값**. negative 다양화(v2)하면 FPR 0%
 에서 진짜 recall 이 **37%** 로 드러난다(원인: synth 학습분포 ↔ deepset(MT) 격차).
@@ -393,11 +394,20 @@ prismdata 13만+ INJECTION)해 v6 를 **학습에 전혀 안 쓴 prismdata 3,000
 분포 희석) — **v6 가 수렴점**. native 한국어 인젝션 데이터는 희소하나(4개 앵글 확인), v6 는 이미
 강건하다.
 
+→ **⑥ everyday FPR 하드닝(v8, 배포본)**: v6 는 recall 수렴점이나 *everyday 한국어 질의*(여행·추천·세금
+같은 정상 assistant 요청)에 balanced-셋 FPR 이 22.8% 로 높았다. over-flag 되던 실분포(번역 영어 everyday
+질의)와 매칭되는 **Dolly everyday instruction 2,195건을 한국어 MT**(eval benign 과 동일 Google Translate)해
+hard-negative 로 추가 → **everyday FPR 22.8→3.2%(−19.6pp)**, native 공격 recall 97.2% 보존
+(`eval/train_injection_v8.py`, 7,895건). 트레이드오프: MT-deepset(영어 인젝션→한국어 번역) 결합 recall
+90.1→71.1(proxy·보수적 하한). ⚠️ **매칭 분포가 핵심**: 첫 시도 KoAlpaca(네이티브 한국어 호기심 질문)
+hard-benign 은 분포 불일치로 FPR 22.8→30% 악화 → 폐기. (v8 은 v6+everyday-benign branch 로, ⑤의 prism
+실험과 별개다.)
+
 → **결론: 0% FPR 의 정밀한 룰이 신뢰 코어**, `ClassifierReviewer` 는 공격 recall 보강용 advisory
-FLAG(룰 결합). v6(native+MT+타겟합성)는 native 100% × **prism 외부 99.9%** × deepset 95.8% 로 강건 —
-그래도 결정론 룰과 함께(hybrid)가 기본. 같은 `SemanticReviewer` seam 이라 `hybrid_check` 에 끼운다.
-가중치 bring-your-own(`eval/train_injection.py`·`_v2`~`_v6`). 공개 모델 카드는
-`ko_injection_guard_release/`(CC-BY-SA-4.0, base klue + CC-BY-SA negative 전파).
+FLAG(룰 결합). 배포본 **v8**(native+MT+타겟합성+everyday hard-benign)은 native 97.2% × deepset 92.8%
+× everyday FPR 3.2% — 그래도 결정론 룰과 함께(hybrid)가 기본. 같은 `SemanticReviewer` seam 이라
+`hybrid_check` 에 끼운다. 가중치 bring-your-own(`eval/train_injection.py`·`_v2`~`_v6`·`_v8`). 공개 모델
+카드는 `ko_injection_guard_release/`(CC-BY-SA-4.0, base klue + CC-BY-SA negative 전파).
 
 ```python
 from ko_prompt_guard import ClassifierReviewer, hybrid_check
