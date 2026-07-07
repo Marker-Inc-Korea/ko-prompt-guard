@@ -16,6 +16,7 @@ from .result import (
     ContextScanResult,
     GuardBlocked,
     GuardResult,
+    Severity,
     Verdict,
     Violation,
 )
@@ -37,8 +38,25 @@ _INDIRECT_PI_CATEGORIES = frozenset(
 class Guard:
     """정책에 묶인 재사용 가능한 가드. check() 호출 간 상태 없음."""
 
-    def __init__(self, policy: GuardPolicy | None = None) -> None:
+    def __init__(self, policy: GuardPolicy | None = None, *, context_reviewer=None) -> None:
         self.policy = policy or GuardPolicy()
+        # opt-in Tier-2: scan_context 의 간접 PI 분류기(룰 recall 54% → 학습분류기 97.5%).
+        # 기본 off(ML-free). context_reviewer= 로 주입하거나 env KO_CTX_CLF_DIR 로 BYO 가중치.
+        self._ctx_reviewer = context_reviewer
+        self._ctx_reviewer_resolved = context_reviewer is not None
+
+    def _get_context_reviewer(self):
+        """lazy: 주입된 reviewer 또는 env KO_CTX_CLF_DIR 로 ClassifierReviewer 생성(가중치는 지연 로드)."""
+        if self._ctx_reviewer_resolved:
+            return self._ctx_reviewer
+        self._ctx_reviewer_resolved = True
+        import os
+        d = os.environ.get("KO_CTX_CLF_DIR")
+        if d:
+            from .reviewers import ClassifierReviewer
+            # 오염문서는 길어 max_length 512, positive_index 1(=indirect_pi/injection).
+            self._ctx_reviewer = ClassifierReviewer(d, positive_index=1, max_length=512)
+        return self._ctx_reviewer
 
     def _collect(
         self, text: str, *, apply_input_fp_gates: bool = True
@@ -136,6 +154,19 @@ class Guard:
         violations, normalized, changed = self._collect(content, apply_input_fp_gates=False)
         pi = tuple(v for v in violations if v.category in _INDIRECT_PI_CATEGORIES)
         poisoned = bool(pi)
+        # opt-in Tier-2: 룰이 못 잡았을 때만 학습분류기로 보강(간접 PI recall 54%→97.5%).
+        # fast-path: 룰이 이미 잡았으면(poisoned) 분류기 생략. 미설정이면 순수 결정론.
+        if not poisoned:
+            rv = self._get_context_reviewer()
+            if rv is not None:
+                import os
+                thr = float(os.environ.get("KO_CTX_CLF_THRESHOLD", "0.5"))
+                score = rv.review(normalized)
+                if score >= thr:
+                    pi = (Violation(category=Category.SEMANTIC, code="context_clf_indirect_pi",
+                                    severity=Severity.MEDIUM,
+                                    reason=f"Tier-2 분류기가 간접 프롬프트 인젝션으로 판정(P={score:.2f})"),)
+                    poisoned = True
         return ContextScanResult(
             poisoned=poisoned,
             source=source,
