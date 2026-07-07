@@ -156,6 +156,14 @@ _P1: list[tuple[re.Pattern[str], Severity]] = [
     (re.compile(
         r"<\s*/?\s*(?:start_of_turn|end_of_turn|tool_call)\s*>|"
         r"\[\s*/?\s*TOOL_CALLS\s*\]", _I), _H),
+    # --- 간접PI 보강: 문서 삽입용 시스템 오버라이드 마커(injection-specific).
+    (re.compile(r"\[\[\s*system\s*(?:override|prompt|note|instruction)\s*\]\]|"
+                r"<!--[^>]{0,40}?(?:ai|시스템|system)\s*(?:지시|명령|override|instruction)|"
+                r"【\s*시스템\s*】\s*[^.\n]{0,20}?(?:무시|따르|수행|출력|전송)|"
+                r"###\s*(?:무시하고|역할\s*(?:재정의|전환)|시스템\s*override)", _I), _H),
+    # --- 간접PI 보강 2: 삽입 지시를 숨기라는 은닉 지시.
+    (re.compile(r"(?:이|해당|위)\s*(?:문단|문장|지시|내용|메시지|규칙|줄)"
+                r"[^.\n]{0,10}?(?:숨겨|숨기|출력(?:에서|하지)?\s*(?:숨|제외|마|않)|보이지\s*않게|display\s*:\s*none|흰\s*(?:색\s*)?글씨|hidden)", _I), _H),
 ]
 
 _P2: list[tuple[re.Pattern[str], Severity]] = [
@@ -247,6 +255,14 @@ _P2: list[tuple[re.Pattern[str], Severity]] = [
         r"(?:그\s*|이\s*|진짜\s*|모든\s*|네\s*|너의\s*|당신의\s*)?"
         r"(?:지침|지시|규칙|설정|역할|프롬프트|시스템\s*프롬프트)"
         r"[^.\n]{0,12}?(?:들려|적어|옮[겨겼]|읽어|낭독|읊|출력|보여|알려|복사|복붙)", _I), _H),
+    # --- 간접PI 보강: (당신의/현재/위의) 시스템 프롬프트 '전문'을 출력하라는 삽입 지시.
+    # 소유격·직시(당신의/네/현재/이/위의/초기) 또는 verbatim(전문/그대로/전부) 을 요구해
+    # 무해한 프롬프트 엔지니어링 교육('시스템 프롬프트 잘 쓰는 법 알려줘')은 제외한다.
+    (re.compile(
+        r"(?:(?:당신의|네|너의|현재|이|위(?:의)?|초기|원래)\s*(?:시스템\s*)?(?:프롬프트|지침|설정|규칙)"
+        r"|시스템\s*프롬프트\s*(?:전문|전체|그대로|전부))"
+        r"[^.\n]{0,15}?(?:출력|공개|노출|덤프|그대로\s*(?:출력|작성|노출)|전문(?:을|를)?\s*(?:출력|공개|노출|보여)|전부\s*(?:출력|노출|공개))",
+        _I), _H),
 ]
 
 _P3: list[tuple[re.Pattern[str], Severity]] = [
@@ -350,6 +366,24 @@ _P3: list[tuple[re.Pattern[str], Severity]] = [
                 r"[^.\n]{0,30}?로\s*(?:시작|써\s*내려가|이어)", _I), _M),
     (re.compile(r"(?:start|begin)\s+(?:your\s+)?(?:response|reply|answer|output|message)\s+with\s+"
                 r"['\"]?\s*(?:sure|yes|of\s+course|certainly|absolutely|here'?s|i\s+(?:can|will|'?d))", _I), _M),
+    # --- 간접PI 보강: 문서가 모델에게 제한 없는 페르소나를 부여(무시 어휘 없이 역할전환).
+    (re.compile(r"(?:당신은|너는|당신은\s*이제|지금부터|이제부터)"
+                r"[^.\n]{0,25}?(?:제한|규칙|검열|필터|가드|안전\s*장치|콘텐츠\s*정책)"
+                r"[^.\n]{0,5}?(?:없|해제|무시|풀|off|비활성)", _I), _H),
+    (re.compile(r"(?:당신은|너는)[^.\n]{0,20}?(?:무제한|무엇이든\s*(?:답|대답|말)|어떤\s*요청도[^.\n]{0,8}?(?:응|답|거부하지\s*않)|모든\s*요청에\s*응)", _I), _H),
+    (re.compile(r"(?:페르소나\s*(?:전환|변경)|역할\s*(?:재정의|재설정|전환|바꿔)|\[\s*persona\s*(?:switch|change)\s*\])", _I), _M),
+    # --- 간접PI 보강 2: 무조건 승인·거절 금지 지시(문서 삽입형 refusal-suppression).
+    (re.compile(r"(?:무엇이든|무엇을\s*묻든|모든\s*요청|어떤\s*(?:요청|질문|것)(?:이든|도)|무조건)"
+                r"[^.\n]{0,25}?(?:거절|거부)\s*(?:하지|치)?\s*(?:말|마|않|없)", _I), _H),
+    (re.compile(r"(?:거절|거부)\s*(?:하지|치)?\s*(?:말|마|않)[^.\n]{0,22}?(?:무엇이든|모든\s*요청|어떤\s*(?:요청|질문)|무조건|다\s*(?:답|승인))", _I), _H),
+    (re.compile(r"무조건\s*(?:승인|동의|수락|답변?\s*하|긍정)", _I), _H),
+    (re.compile(r"(?:안전\s*(?:경고|장치|가드|절차|보고)|주의\s*(?:경고|문구)|면책|경고\s*문구)"
+                r"[^.\n]{0,10}?(?:붙이지\s*(?:말|마)|없이|생략|무시|해제|제거|건너)", _I), _H),
+    # 악성 페르소나 전환 — 무해 롤플레이('요리사 역할로 답해') 제외 위해 악성 동반어 필수.
+    (re.compile(r"(?:역할|인격|성격|페르소나|모드)[^.\n]{0,12}?(?:전환|변신|재정의|바꾸|스스로를)"
+                r"[^.\n]{0,50}?(?:거절하지\s*말|거부하지\s*말|무시|승인만|과장|규정\s*무시|편법|남용|숨겨|유출|공개하|폭로|축소하)", _I), _H),
+    (re.compile(r"(?:거절하지\s*말|거부하지\s*말|규정\s*무시|과장된\s*효능|안전(?:성)?\s*(?:경고|검증)[^.\n]{0,4}없이|축소하고|편법|남용)"
+                r"[^.\n]{0,50}?(?:역할|인격|성격|페르소나)[^.\n]{0,8}?(?:전환|변신|행동|재정의)", _I), _H),
 ]
 
 _P6: list[tuple[re.Pattern[str], Severity]] = [
@@ -367,6 +401,14 @@ _P6: list[tuple[re.Pattern[str], Severity]] = [
         r"(?:me\s+)?(?:everything|all|the\s+(?:text|content|message|prompt)s?)\s+"
         r"(?:above|before|preceding|prior|that\s+came\s+before|"
         r"from\s+the\s+(?:start|top|beginning))", _I), _H),
+    # --- 간접PI(문서/도구출력) 보강: 사용자 데이터를 외부로 전송하라는 지시.
+    (re.compile(r"(?:대화|정보|데이터|내용|답변|결과|기록|입력|사용자[^.\n]{0,4})"
+                r"[^.\n]{0,25}?(?:외부|external|https?://|[A-Za-z0-9.-]+\.(?:com|net|io|org|kr)|서버|이메일|웹훅|webhook)"
+                r"[^.\n]{0,15}?(?:전송|전달|보내|업로드|유출|보고|송신|post)", _I), _H),
+    # 위험 도구/명령 호출 지시(에이전트 오남용): delete_all/drop_database/전체삭제 + 호출/실행/하라.
+    (re.compile(r"(?:delete_all|drop_database|drop\s+table|truncate|transfer_funds|broadcast_alert|"
+                r"rm\s+-rf|전체\s*삭제|모두\s*삭제|데이터(?:베이스)?\s*삭제|계정\s*삭제|송금)"
+                r"[^.\n]{0,18}?(?:호출|실행|수행|하라|하시오|해야|해\s*줘|해\s*주세요|call|invoke)", _I), _H),
 ]
 
 _P7: list[tuple[re.Pattern[str], Severity]] = [
