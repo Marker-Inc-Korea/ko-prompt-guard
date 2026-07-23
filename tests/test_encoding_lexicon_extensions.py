@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from ko_prompt_guard import Category, Guard, Verdict
+from ko_prompt_guard import Category, Guard
 from ko_prompt_guard import patterns as P
 
 GUARD = Guard()
@@ -34,13 +34,13 @@ def test_encoding_lexicon_detected(t: str) -> None:
 
 
 def test_unicode_escape_chain_detected() -> None:
-    payload = "".join(BS + "u%04x" % ord(c) for c in "ignore")
+    payload = "".join(BS + f"u{ord(c):04x}" for c in "ignore")
     hits = P.scan_encoding(payload)
     assert any(v.code == "encoding#4" for v in hits)
 
 
 def test_unicode_escape_dev_gated_for_input() -> None:
-    payload = "".join(BS + "u%04x" % ord(c) for c in "ignore") + " 어떻게 쓰나요?"
+    payload = "".join(BS + f"u{ord(c):04x}" for c in "ignore") + " 어떻게 쓰나요?"
     # 사용자 입력(학습 질문): 억제
     assert P.scan_encoding(payload, apply_dev_gate=True) == []
     # 문서/컨텍스트 경로: 억제 해제

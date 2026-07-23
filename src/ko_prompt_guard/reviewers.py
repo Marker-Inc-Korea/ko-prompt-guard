@@ -40,7 +40,7 @@ def default_anchors() -> list[str]:
 def _cosine_topk_mean(vec: list[float], mat: list[list[float]], k: int) -> float:
     # vec, mat rows assumed L2-normalized → dot product == cosine. Pure-python so the
     # reviewer's scoring logic needs no numpy; the *encoder* may use numpy/torch.
-    sims = [sum(a * b for a, b in zip(vec, row)) for row in mat]
+    sims = [sum(a * b for a, b in zip(vec, row, strict=False)) for row in mat]
     if not sims:
         return 0.0
     sims.sort(reverse=True)
@@ -120,17 +120,22 @@ def make_bge_encoder(
     tok = AutoTokenizer.from_pretrained(model)
     net = AutoModel.from_pretrained(model).eval().to(dev)
 
-    @torch.no_grad()
     def encode(texts: Sequence[str]) -> list[list[float]]:
         out: list[list[float]] = []
         texts = list(texts)
-        for i in range(0, len(texts), batch_size):
-            b = texts[i : i + batch_size]
-            enc = tok(b, padding=True, truncation=True, max_length=max_length,
-                      return_tensors="pt").to(dev)
-            h = net(**enc).last_hidden_state[:, 0]            # CLS = bge-m3 dense
-            h = torch.nn.functional.normalize(h, dim=-1)
-            out.extend(h.float().cpu().tolist())
+        with torch.no_grad():
+            for i in range(0, len(texts), batch_size):
+                b = texts[i : i + batch_size]
+                enc = tok(
+                    b,
+                    padding=True,
+                    truncation=True,
+                    max_length=max_length,
+                    return_tensors="pt",
+                ).to(dev)
+                h = net(**enc).last_hidden_state[:, 0]  # CLS = bge-m3 dense
+                h = torch.nn.functional.normalize(h, dim=-1)
+                out.extend(h.float().cpu().tolist())
         return out
 
     return encode
@@ -175,6 +180,7 @@ class ClassifierReviewer:
 
     def _ensure(self) -> None:
         if self._scorer is None:
+            assert self._model_dir is not None
             self._scorer = make_roberta_classifier(
                 self._model_dir, positive_index=self._positive_index, max_length=self._max_length
             )
@@ -202,7 +208,10 @@ def make_roberta_classifier(
     """
     try:
         import torch
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        from transformers import (
+            AutoModelForSequenceClassification,
+            AutoTokenizer,
+        )
     except ImportError as e:  # pragma: no cover
         raise ImportError(
             "ClassifierReviewer's default backend needs torch+transformers: "
@@ -213,16 +222,21 @@ def make_roberta_classifier(
     tok = AutoTokenizer.from_pretrained(model_dir)
     net = AutoModelForSequenceClassification.from_pretrained(model_dir).eval().to(dev)
 
-    @torch.no_grad()
     def score(texts: Sequence[str]) -> list[float]:
         out: list[float] = []
         texts = list(texts)
-        for i in range(0, len(texts), batch_size):
-            b = texts[i : i + batch_size]
-            enc = tok(b, padding=True, truncation=True, max_length=max_length,
-                      return_tensors="pt").to(dev)
-            p = torch.softmax(net(**enc).logits, dim=-1)[:, positive_index]
-            out.extend(p.float().cpu().tolist())
+        with torch.no_grad():
+            for i in range(0, len(texts), batch_size):
+                b = texts[i : i + batch_size]
+                enc = tok(
+                    b,
+                    padding=True,
+                    truncation=True,
+                    max_length=max_length,
+                    return_tensors="pt",
+                ).to(dev)
+                p = torch.softmax(net(**enc).logits, dim=-1)[:, positive_index]
+                out.extend(p.float().cpu().tolist())
         return out
 
     return score
@@ -230,7 +244,7 @@ def make_roberta_classifier(
 
 def hybrid_check(
     text: str,
-    reviewer: "EmbeddingReviewer | ClassifierReviewer",
+    reviewer: EmbeddingReviewer | ClassifierReviewer,
     *,
     threshold: float = 0.62,
     context: str | None = None,

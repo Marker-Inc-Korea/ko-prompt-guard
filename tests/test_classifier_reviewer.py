@@ -17,7 +17,6 @@ from ko_prompt_guard import (
     hybrid_check,
 )
 
-
 # --- fake scorer: 공격 키워드 유무로 P(injection) (ML 불필요) -----------------------
 _ATTACK = ("무시", "ignore", "탈옥", "jailbreak", "프롬프트", "제약", "제한", "개발자 모드")
 

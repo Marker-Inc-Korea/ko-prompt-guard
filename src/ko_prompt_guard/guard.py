@@ -7,6 +7,9 @@ GuardResult 를 반환한다. 네트워크·LLM·임베딩 호출이 전혀 없�
 """
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from typing import Protocol
+
 from . import patterns
 from .normalize import normalize
 from .normalize.leet import deleet_variants
@@ -35,18 +38,29 @@ _INDIRECT_PI_CATEGORIES = frozenset(
 )
 
 
+class ContextReviewer(Protocol):
+    """Minimal Tier-2 contract used for non-user context review."""
+
+    def review(self, text: str) -> float: ...
+
+
 class Guard:
     """정책에 묶인 재사용 가능한 가드. check() 호출 간 상태 없음."""
 
-    def __init__(self, policy: GuardPolicy | None = None, *, context_reviewer=None) -> None:
+    def __init__(
+        self,
+        policy: GuardPolicy | None = None,
+        *,
+        context_reviewer: ContextReviewer | None = None,
+    ) -> None:
         self.policy = policy or GuardPolicy()
         # opt-in Tier-2: scan_context 의 간접 PI 분류기(룰 recall 54% → 학습분류기 97.5%).
         # 기본 off(ML-free). context_reviewer= 로 주입하거나 env KO_CTX_CLF_DIR 로 BYO 가중치.
-        self._ctx_reviewer = context_reviewer
-        self._ctx_reviewer_resolved = context_reviewer is not None
+        self._ctx_reviewer: ContextReviewer | None = context_reviewer
+        self._ctx_reviewer_resolved: bool = context_reviewer is not None
 
-    def _get_context_reviewer(self):
-        """lazy: 주입된 reviewer 또는 env KO_CTX_CLF_DIR 로 ClassifierReviewer 생성(가중치는 지연 로드)."""
+    def _get_context_reviewer(self) -> ContextReviewer | None:
+        """주입 reviewer 또는 ``KO_CTX_CLF_DIR`` reviewer를 지연 생성한다."""
         if self._ctx_reviewer_resolved:
             return self._ctx_reviewer
         self._ctx_reviewer_resolved = True
@@ -163,9 +177,17 @@ class Guard:
                 thr = float(os.environ.get("KO_CTX_CLF_THRESHOLD", "0.5"))
                 score = rv.review(normalized)
                 if score >= thr:
-                    pi = (Violation(category=Category.SEMANTIC, code="context_clf_indirect_pi",
-                                    severity=Severity.MEDIUM,
-                                    reason=f"Tier-2 분류기가 간접 프롬프트 인젝션으로 판정(P={score:.2f})"),)
+                    pi = (
+                        Violation(
+                            category=Category.SEMANTIC,
+                            code="context_clf_indirect_pi",
+                            severity=Severity.MEDIUM,
+                            reason=(
+                                "Tier-2 분류기가 간접 프롬프트 인젝션으로 "
+                                f"판정(P={score:.2f})"
+                            ),
+                        ),
+                    )
                     poisoned = True
         return ContextScanResult(
             poisoned=poisoned,
@@ -178,7 +200,7 @@ class Guard:
 
     def check_messages(
         self,
-        messages: "list[str | dict]",
+        messages: Sequence[str | Mapping[str, object]],
         *,
         last_n: int = 6,
         roles: tuple[str, ...] = ("user",),
@@ -206,13 +228,18 @@ def check(text: str, policy: GuardPolicy | None = None) -> GuardResult:
     return Guard(policy).check(text)
 
 
-def scan_context(content: str, policy: GuardPolicy | None = None, *, source: str = "context") -> ContextScanResult:
-    """모듈 레벨 편의 함수 — Guard(policy).scan_context(content). 간접 PI(검색문서/도구출력) 스캔."""
+def scan_context(
+    content: str,
+    policy: GuardPolicy | None = None,
+    *,
+    source: str = "context",
+) -> ContextScanResult:
+    """검색 문서와 도구 출력의 간접 PI를 검사하는 모듈 레벨 함수."""
     return Guard(policy).scan_context(content, source=source)
 
 
 def check_messages(
-    messages: "list[str | dict]",
+    messages: Sequence[str | Mapping[str, object]],
     policy: GuardPolicy | None = None,
     *,
     last_n: int = 6,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from ko_prompt_guard import Guard, Verdict, check, scan_context
+from ko_prompt_guard import Guard, Verdict, scan_context
 
 GUARD = Guard()
 

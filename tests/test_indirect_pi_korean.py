@@ -9,8 +9,9 @@
 import json
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from ko_prompt_guard import scan_context, check, Verdict
+from ko_prompt_guard import Verdict, check, scan_context
 
 FIX = Path(__file__).resolve().parent / "fixtures"
 
@@ -35,5 +36,6 @@ if __name__ == "__main__":
     ben = json.loads((FIX / "overdefense_set.json").read_text())["benign_overdefense"]
     print(f"간접PI recall: {sum(scan_context(t).poisoned for t in atk)}/{len(atk)}")
     print(f"과차단 FPR 입력: {sum(check(t).verdict is not Verdict.ALLOW for t in ben)}/{len(ben)}")
-    test_indirect_pi_recall(); test_korean_over_defense_zero()
+    test_indirect_pi_recall()
+    test_korean_over_defense_zero()
     print("PASS (recall≥45%, 과차단 0%)")
