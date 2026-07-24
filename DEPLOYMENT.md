@@ -11,7 +11,7 @@ readiness가 실패하며, 모델 reviewer는 별도의 Slurm GPU endpoint로 �
 ```bash
 docker build -f ko-prompt-guard/Dockerfile \
   --build-arg VCS_REF="$(git rev-parse HEAD)" \
-  -t ko-prompt-guard:0.2.0rc1 .
+  -t ko-prompt-guard:0.2.0 .
 ```
 
 ## Run
@@ -24,7 +24,7 @@ docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
   -e KO_GUARD_AUDIT_HMAC_KEY="$KO_GUARD_AUDIT_HMAC_KEY" \
   -v "$PWD/deployment/policies/prompt-production.json:/run/policy.json:ro" \
   -e KO_GUARD_POLICY_FILE=/run/policy.json \
-  ko-prompt-guard:0.2.0rc1
+  ko-prompt-guard:0.2.0
 ```
 
 `KO_GUARD_API_TOKEN`과 `KO_GUARD_AUDIT_HMAC_KEY`는 각각 최소 32바이트여야 한다. 외부 bind에서
