@@ -1,6 +1,9 @@
 """v6 코퍼스 = v5(4495) + v6 타겟 합성(문맥혼동 hard-neg + 간접공격 pos)."""
 import json
-D="/data1/mk04/eval_external"
+
+from _paths import EVAL_ROOT
+
+D = str(EVAL_ROOT)
 test_texts={r["text"] for r in json.load(open(f"{D}/native_ko_test.json"))}
 def jl(p): return [json.loads(l) for l in open(p) if l.strip()]
 rows=jl(f"{D}/inj_train_v5.jsonl")

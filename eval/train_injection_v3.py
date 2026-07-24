@@ -20,10 +20,12 @@ import torch
 from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
                           Trainer, TrainingArguments)
 
+from _paths import EVAL_ROOT, pii_path
+
 random.seed(13)
-D = "/data1/mk04/eval_external"
+D = str(EVAL_ROOT)
 MODEL = "klue/roberta-base"
-DEEPSET = "/data1/mk04/projects/ko-pii/experiments/ko-output-guard/eval/external/deepset_ko.jsonl"
+DEEPSET = pii_path("deepset_ko.jsonl")
 
 
 def load(p, tk, lk):

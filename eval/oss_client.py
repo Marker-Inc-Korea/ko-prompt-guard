@@ -6,16 +6,23 @@ endpoint.txt(서빙 sbatch가 기록)에서 base URL 자동 로드. oss-120b 는
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-EP_FILE = "/data1/mk04/eval_external/oss_endpoint.txt"
+from _paths import eval_path
+
+EP_FILE = eval_path("oss_endpoint.txt")
 MODEL = "openai/gpt-oss-120b"
 
 
 def endpoint() -> str:
     base = open(EP_FILE).read().strip()
-    return base.replace("marker-ThinkStation-P620", "192.168.0.193")
+    source_host = os.environ.get("KO_GUARD_OSS_SOURCE_HOST")
+    target_host = os.environ.get("KO_GUARD_OSS_TARGET_HOST")
+    if source_host and target_host:
+        return base.replace(source_host, target_host)
+    return base
 
 
 def chat(messages, max_tokens=512, temperature=0.0, base=None, timeout=180) -> str:

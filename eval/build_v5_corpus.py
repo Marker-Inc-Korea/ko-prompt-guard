@@ -16,9 +16,11 @@ import csv
 import json
 import random
 
+from _paths import EVAL_ROOT, KO_PII_EVAL_ROOT
+
 random.seed(13)
-D = "/data1/mk04/eval_external"
-EVAL = "/data1/mk04/projects/ko-pii/experiments/ko-output-guard/eval/external"
+D = str(EVAL_ROOT)
+EVAL = str(KO_PII_EVAL_ROOT)
 
 
 def jl(p):

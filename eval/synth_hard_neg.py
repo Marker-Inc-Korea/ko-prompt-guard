@@ -12,10 +12,10 @@ import json
 import re
 import sys
 
-sys.path.insert(0, "/data1/mk04/eval_external")
 import gemma_client as gc
+from _paths import eval_path
 
-OUT = "/data1/mk04/eval_external/hard_neg.jsonl"
+OUT = eval_path("hard_neg.jsonl")
 
 # 인젝션 트리거 단어가 들어가되 정상 의도인 benign 프롬프트를 생성할 맥락
 CATEGORIES = {

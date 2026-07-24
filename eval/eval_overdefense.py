@@ -15,8 +15,10 @@ import numpy as np
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from _paths import EVAL_ROOT
+
 random.seed(13)
-D = "/data1/mk04/eval_external"
+D = str(EVAL_ROOT)
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 # hard_neg 를 train/test 분리 (v4 가 학습에 쓴 것과 동일 seed 가정 — 여기선 단순 20% holdout 표본)

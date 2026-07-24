@@ -11,9 +11,11 @@ from __future__ import annotations
 import json
 import unicodedata
 
-KO_INJ = "/data1/mk04/eval_external/ko_injection_eval.jsonl"
-DEEPSET_KO = "/data1/mk04/projects/ko-pii/experiments/ko-output-guard/eval/external/deepset_ko.jsonl"
-OUT = "/data1/mk04/eval_external/prompt_eval_sets.json"
+from _paths import eval_path, pii_path
+
+KO_INJ = eval_path("ko_injection_eval.jsonl")
+DEEPSET_KO = pii_path("deepset_ko.jsonl")
+OUT = eval_path("prompt_eval_sets.json")
 
 CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
 JUNG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"

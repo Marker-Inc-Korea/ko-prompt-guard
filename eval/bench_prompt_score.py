@@ -11,12 +11,14 @@ from __future__ import annotations
 import json
 import sys
 
-sys.path.insert(0, "/data1/mk04/eval_external/modak_pub/ko-prompt-guard/src")
+from _paths import PROMPT_SRC, eval_path
+
+sys.path.insert(0, str(PROMPT_SRC))
 from ko_prompt_guard import Guard, Verdict
 
-SETS = "/data1/mk04/eval_external/prompt_eval_sets.json"
-PREDS = "/data1/mk04/eval_external/prompt_preds_gpu.json"
-OUT = "/data1/mk04/eval_external/bench_prompt_report.json"
+SETS = eval_path("prompt_eval_sets.json")
+PREDS = eval_path("prompt_preds_gpu.json")
+OUT = eval_path("bench_prompt_report.json")
 G = Guard()
 THR = 0.5
 

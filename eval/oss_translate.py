@@ -8,13 +8,12 @@
 from __future__ import annotations
 
 import json
-import sys
 
-sys.path.insert(0, "/data1/mk04/eval_external")
 import oss_client as oss
+from _paths import eval_path
 
-SRC = "/data1/mk04/eval_external/en_injections.jsonl"
-OUT = "/data1/mk04/eval_external/ko_injections_translated.jsonl"
+SRC = eval_path("en_injections.jsonl")
+OUT = eval_path("ko_injections_translated.jsonl")
 
 SYS = (
     "You are a precise EN→KO translator building security training data. Translate the "

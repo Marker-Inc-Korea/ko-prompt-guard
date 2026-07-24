@@ -12,8 +12,10 @@ import os
 import random
 import urllib.request
 
+from _paths import EVAL_ROOT
+
 TOK = os.environ.get("HF_TOKEN", "")
-OUT = "/data1/mk04/eval_external"
+OUT = str(EVAL_ROOT)
 
 
 def rows(ds, config, split, n=4000):

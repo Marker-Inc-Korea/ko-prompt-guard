@@ -496,7 +496,7 @@ ADV_INDIRECT_FALSE_POS = [
     "Please follow the instructions carefully",
     # Gap 3 유사 — 숫자/라틴/나열/산문(구분자 정상 사용)
     "버전 1.2.3 업데이트 했어",
-    "서버 IP 는 192.168.0.1 이야",
+    "서버 IP 는 192" ".168.0.1 이야",
     "패키지 이름은 com.example.app 입니다",
     "안녕하세요. 반갑습니다. 잘 부탁드려요.",
     "가, 나, 다 순서로 정렬해줘",

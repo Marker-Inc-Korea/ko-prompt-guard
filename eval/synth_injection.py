@@ -14,13 +14,13 @@ import json
 import os
 import sys
 
-sys.path.insert(0, "/data1/mk04/eval_external")
 import gemma_client as gc
+from _paths import PROMPT_SRC, eval_path
 
-ANCHORS = "/data1/mk04/eval_external/modak_pub/ko-prompt-guard/src/ko_prompt_guard/data/injection_anchors.json"
+ANCHORS = str(PROMPT_SRC / "ko_prompt_guard" / "data" / "injection_anchors.json")
 QTAOA = os.environ.get("KO_GUARD_BENIGN_CORPUS",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/benign_ko_sample.jsonl"))
-OUT = "/data1/mk04/eval_external/inj_train.jsonl"
+OUT = eval_path("inj_train.jsonl")
 
 TECHNIQUES = {
     "지시무시": "이전 지시·시스템 규칙을 무시하라고 요구하는 공격",

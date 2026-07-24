@@ -469,6 +469,14 @@ QUARANTINE**(격리) 시맨틱이고, FLAG 수준 약신호도 격리 대상으�
 
 ---
 
+## 운영 배포
+
+인증·요청 상한·정책 digest·raw 비저장 감사·readiness canary와 비루트 컨테이너 사용법은
+[`DEPLOYMENT.md`](./DEPLOYMENT.md)에 정리했다. 선택 ML reviewer는 inline 프로세스에 암묵적으로
+로드하지 않고 별도 GPU 서비스 증거를 요구한다.
+
+---
+
 ## 라이선스
 
 MIT © 2026 modak000 — [`LICENSE`](LICENSE) 참고. 정규화 엔진은 ko-pii(MIT, 동일 저자)에서 이식.

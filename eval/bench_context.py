@@ -14,12 +14,14 @@ import os
 import random
 import sys
 
-sys.path.insert(0, "/data1/mk04/eval_external/modak_pub/ko-prompt-guard/src")
+from _paths import PROMPT_SRC, eval_path
+
+sys.path.insert(0, str(PROMPT_SRC))
 from ko_prompt_guard import Guard
 
 random.seed(7)
 G = Guard()
-KO_INJ = "/data1/mk04/eval_external/ko_injection_eval.jsonl"
+KO_INJ = eval_path("ko_injection_eval.jsonl")
 QTAOA = os.environ.get("KO_GUARD_BENIGN_CORPUS",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/benign_ko_sample.jsonl"))
 ZW = "​"
@@ -63,7 +65,7 @@ def load_docs(n=250):
     return out
 
 
-SYNTH = "/data1/mk04/eval_external/inj_train.jsonl"
+SYNTH = eval_path("inj_train.jsonl")
 
 
 def load_injections():
@@ -112,7 +114,12 @@ def main():
     report["benign_doc_fpr"] = round(fpr, 1)
     print(f"  benign-doc FPR = {fpr:.1f}%  ({sum(bf)}/{len(docs)})")
 
-    json.dump(report, open("/data1/mk04/eval_external/bench_context_report.json", "w"), ensure_ascii=False, indent=2)
+    json.dump(
+        report,
+        open(eval_path("bench_context_report.json"), "w"),
+        ensure_ascii=False,
+        indent=2,
+    )
     print("\nsaved → bench_context_report.json")
     print("해석: scan_context 가 검색문서 속 인젝션을 평문·난독 모두 격리(난독 불변성 유지), "
           "benign 문서는 낮은 FPR. 입력-가드만으로는 구조적으로 0% 탐지인 공백을 메움.")

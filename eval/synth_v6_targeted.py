@@ -11,11 +11,11 @@ from __future__ import annotations
 import json
 import sys
 
-sys.path.insert(0, "/data1/mk04/eval_external")
 import gemma_client as gc
+from _paths import eval_path
 
-OUT_NEG = "/data1/mk04/eval_external/v6_hardneg.jsonl"
-OUT_POS = "/data1/mk04/eval_external/v6_pos.jsonl"
+OUT_NEG = eval_path("v6_hardneg.jsonl")
+OUT_POS = eval_path("v6_pos.jsonl")
 
 # ① 사람-맥락 benign: '이전 지시/명령/규칙 무시·잊어' 류 단어가 들어가되 AI 공격이 아닌 정상문
 NEG_CTX = {

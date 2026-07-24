@@ -5,7 +5,7 @@
   EmbeddingReviewer 가 이 분포에서 25% 였던 것 대비, 분류기가 얼마나 일반화하는지가 핵심.
 
 출력: inj_clf/final (모델) + inj_train_report.json (in-dist + deepset 신종 metric).
-실행(GPU sbatch, ner_env): HF_HOME=/data1/mk04/.cache/huggingface python train_injection.py
+실행(GPU sbatch): HF_HOME=$KO_GUARD_EVAL_ROOT/.cache/huggingface python train_injection.py
 """
 from __future__ import annotations
 
@@ -18,11 +18,13 @@ import torch.nn.functional as Fnn
 from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
                           Trainer, TrainingArguments)
 
+from _paths import EVAL_ROOT, pii_path
+
 random.seed(13)
-D = "/data1/mk04/eval_external"
+D = str(EVAL_ROOT)
 MODEL = "klue/roberta-base"
 TRAIN = f"{D}/inj_train.jsonl"
-DEEPSET = "/data1/mk04/projects/ko-pii/experiments/ko-output-guard/eval/external/deepset_ko.jsonl"
+DEEPSET = pii_path("deepset_ko.jsonl")
 
 
 def load_jsonl(p, tkey, lkey):
