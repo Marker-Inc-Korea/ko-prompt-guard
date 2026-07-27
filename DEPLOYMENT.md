@@ -1,36 +1,24 @@
 # ko-prompt-guard Deployment
 
-배포 이미지는 사용자 입력과 RAG/도구 컨텍스트를 분리해 검사하는 결정론 서비스다. 선택 ML
-reviewer는 이 프로세스에 로드하지 않는다. `KO_INJ_CLF_DIR` 또는 `KO_CTX_CLF_DIR`가 설정되면
-readiness가 실패하며, 모델 reviewer는 별도의 Slurm GPU endpoint로 배포·검증해야 한다.
+이 저장소는 `ko-prompt-guard` 패키지, 공개 정책 API와 제품 테스트의 canonical source다. 인증,
+감사, 공통 정책 로더와 컨테이너 hardening을 포함한 HTTP 서비스 조립은
+[`modak_experiments/deployment`](https://github.com/Marker-Inc-Korea/modak_experiments/tree/main/deployment)
+에서 관리한다. 공용 런타임을 제품별로 복제하지 않기 위해 이 저장소에는 서비스 `Dockerfile`을 두지 않는다.
 
-## Build
-
-저장소 루트에서 immutable source commit을 넣어 빌드한다.
-
-```bash
-docker build -f ko-prompt-guard/Dockerfile \
-  --build-arg VCS_REF="$(git rev-parse HEAD)" \
-  -t ko-prompt-guard:0.2.0 .
-```
-
-## Run
+## Package Qualification
 
 ```bash
-docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
-  --cap-drop ALL --security-opt no-new-privileges \
-  -p 127.0.0.1:8081:8080 \
-  -e KO_GUARD_API_TOKEN="$KO_GUARD_API_TOKEN" \
-  -e KO_GUARD_AUDIT_HMAC_KEY="$KO_GUARD_AUDIT_HMAC_KEY" \
-  -v "$PWD/deployment/policies/prompt-production.json:/run/policy.json:ro" \
-  -e KO_GUARD_POLICY_FILE=/run/policy.json \
-  ko-prompt-guard:0.2.0
+python -m pip install -e ".[dev]"
+python -m ruff check src tests
+python -m mypy
+python -m pytest
+python -m build --sdist --wheel
 ```
 
-`KO_GUARD_API_TOKEN`과 `KO_GUARD_AUDIT_HMAC_KEY`는 각각 최소 32바이트여야 한다. 외부 bind에서
-둘 중 하나라도 없으면 기동을 거부하며, 두 값은 서로 다른 secret으로 발급한다.
+릴리스 후보는 이 저장소의 clean commit에서 만들어야 하며, wheel 검증과 Python 지원 버전 CI가 모두
+통과해야 한다. 패키지 검증은 HTTP 서비스 승격을 대신하지 않는다.
 
-## API
+## Service Contract
 
 - `GET /health/live`: 프로세스 생존 확인
 - `GET /health/ready`: 최소 ready/not-ready 상태
@@ -43,5 +31,7 @@ docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
 
 상세 정책·provenance·canary 결과는 인증된 `/v1/metadata` 또는 `--check`에서만 반환한다.
 
-배포 승격은 [suite deployment contract](../deployment/README.md)의 이미지 digest, SBOM,
-preflight와 `ko-redteam` 증거 gate를 모두 통과해야 한다.
+결정론 서비스는 사용자 입력과 RAG/도구 컨텍스트를 분리해 검사한다. 선택 ML reviewer는 이
+프로세스에 로드하지 않는다. 모델 reviewer는 별도의 Slurm GPU endpoint로 배포·검증해야 한다.
+통합 저장소는 이미지에 이 저장소의 exact commit을 기록하고, source digest, SBOM, signature,
+preflight와 `ko-redteam` 증거 gate를 함께 검증해야 한다.

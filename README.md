@@ -1,5 +1,9 @@
 # ko-prompt-guard
 
+[![CI](https://github.com/Marker-Inc-Korea/ko-prompt-guard/actions/workflows/tests.yml/badge.svg)](https://github.com/Marker-Inc-Korea/ko-prompt-guard/actions/workflows/tests.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0b7285)](https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/pyproject.toml)
+[![Status: Beta](https://img.shields.io/badge/status-beta-c57b00)](./CHANGELOG.md)
+
 > 한국어 프롬프트 인젝션·탈옥을 **LLM 입력 전에** 잡는 결정론(rule-based) 가드 — 한국어 난독을 펴서(de-obfuscate) 공격을 드러낸다.
 
 ```python

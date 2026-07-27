@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "modak000" }]
+authors = [{ name = "Marker Inc Korea" }]
 keywords = ["korean", "prompt-injection", "jailbreak", "llm", "guardrail", "security", "unicode"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Natural Language :: Korean",
     "Programming Language :: Python :: 3",
@@ -24,6 +24,12 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Marker-Inc-Korea/ko-prompt-guard"
+Repository = "https://github.com/Marker-Inc-Korea/ko-prompt-guard"
+Issues = "https://github.com/Marker-Inc-Korea/ko-prompt-guard/issues"
+Changelog = "https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
