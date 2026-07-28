@@ -286,8 +286,8 @@ class Guard:
                 content = m
             elif isinstance(m, Mapping):
                 try:
-                    role = m["role"]
-                    content = m["content"]
+                    role_value = m["role"]
+                    content_value = m["content"]
                 except Exception:
                     return self._blocked_result(
                         original_text="",
@@ -295,13 +295,19 @@ class Guard:
                         category=Category.INPUT_VALIDATION,
                         reason="message mappings require role and content fields",
                     )
-                if not isinstance(role, str) or not role.strip() or not isinstance(content, str):
+                if (
+                    not isinstance(role_value, str)
+                    or not role_value.strip()
+                    or not isinstance(content_value, str)
+                ):
                     return self._blocked_result(
                         original_text="",
                         code="invalid_message_fields",
                         category=Category.INPUT_VALIDATION,
                         reason="message role and content must be non-empty strings",
                     )
+                role = role_value
+                content = content_value
             else:
                 return self._blocked_result(
                     original_text="",
