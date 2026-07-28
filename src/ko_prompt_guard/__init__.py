@@ -21,7 +21,9 @@ from .result import (
     ContextScanResult,
     GuardBlocked,
     GuardResult,
+    GuardTelemetry,
     Severity,
+    TelemetryViolation,
     Verdict,
     Violation,
 )
@@ -38,7 +40,7 @@ from .reviewers import (
 )
 from .semantic import SemanticReviewer
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "Category",
@@ -49,8 +51,10 @@ __all__ = [
     "GuardBlocked",
     "GuardPolicy",
     "GuardResult",
+    "GuardTelemetry",
     "SemanticReviewer",
     "Severity",
+    "TelemetryViolation",
     "Verdict",
     "Violation",
     "check",

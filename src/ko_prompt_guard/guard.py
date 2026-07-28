@@ -118,10 +118,40 @@ class Guard:
                         seen.add((v.category, v.code))
         return violations, normalized, changed
 
+    @staticmethod
+    def _blocked_result(
+        *,
+        original_text: str,
+        code: str,
+        category: Category,
+        reason: str,
+    ) -> GuardResult:
+        """Build a fail-closed result without exposing unprocessed text as normalized."""
+        return GuardResult(
+            verdict=Verdict.BLOCK,
+            original_text=original_text,
+            normalized_text="",
+            violations=(
+                Violation(
+                    code=code,
+                    category=category,
+                    severity=Severity.HIGH,
+                    reason=reason,
+                ),
+            ),
+        )
+
     def check(self, text: str) -> GuardResult:
         if not isinstance(text, str):
             raise TypeError(f"check() expects str, got {type(text).__name__}")
         policy = self.policy
+        if len(text) > policy.max_input_chars:
+            return self._blocked_result(
+                original_text="",
+                code="input_too_long",
+                category=Category.RESOURCE_LIMIT,
+                reason="input exceeds the configured character limit",
+            )
         violations, normalized, changed = self._collect(text)
 
         blocking = [
@@ -145,9 +175,9 @@ class Guard:
         )
 
     def enforce(self, text: str) -> str:
-        """안전하면 (난독 해제된) 텍스트 반환, BLOCK 이면 GuardBlocked 발생."""
+        """ALLOW 일 때만 (난독 해제된) 텍스트를 반환하고, 나머지는 차단한다."""
         result = self.check(text)
-        if result.verdict is Verdict.BLOCK:
+        if result.verdict is not Verdict.ALLOW:
             raise GuardBlocked(result)
         return result.normalized_text
 
@@ -213,14 +243,108 @@ class Guard:
 
         ``messages`` 는 OpenAI chat 형식 ``[{"role","content"}, ...]`` 또는 문자열 리스트.
         """
+        policy = self.policy
+        if not isinstance(last_n, int) or isinstance(last_n, bool) or last_n < 1:
+            return self._blocked_result(
+                original_text="",
+                code="invalid_last_n",
+                category=Category.INPUT_VALIDATION,
+                reason="last_n must be a positive integer",
+            )
+        if (
+            not isinstance(roles, tuple)
+            or not roles
+            or any(not isinstance(role, str) or not role.strip() for role in roles)
+        ):
+            return self._blocked_result(
+                original_text="",
+                code="invalid_roles",
+                category=Category.INPUT_VALIDATION,
+                reason="roles must be a non-empty tuple of non-empty strings",
+            )
+        if isinstance(messages, str | bytes | bytearray) or not isinstance(
+            messages, Sequence
+        ):
+            return self._blocked_result(
+                original_text="",
+                code="invalid_messages",
+                category=Category.INPUT_VALIDATION,
+                reason="messages must be a sequence of strings or role/content mappings",
+            )
+        if len(messages) > policy.max_message_count:
+            return self._blocked_result(
+                original_text="",
+                code="too_many_messages",
+                category=Category.RESOURCE_LIMIT,
+                reason="message count exceeds the configured limit",
+            )
+
         texts: list[str] = []
         for m in messages:
             if isinstance(m, str):
-                texts.append(m)
-            elif isinstance(m, dict) and m.get("role") in roles and m.get("content"):
-                texts.append(str(m["content"]))
+                role: str | None = None
+                content = m
+            elif isinstance(m, Mapping):
+                try:
+                    role = m["role"]
+                    content = m["content"]
+                except Exception:
+                    return self._blocked_result(
+                        original_text="",
+                        code="invalid_message_mapping",
+                        category=Category.INPUT_VALIDATION,
+                        reason="message mappings require role and content fields",
+                    )
+                if not isinstance(role, str) or not role.strip() or not isinstance(content, str):
+                    return self._blocked_result(
+                        original_text="",
+                        code="invalid_message_fields",
+                        category=Category.INPUT_VALIDATION,
+                        reason="message role and content must be non-empty strings",
+                    )
+            else:
+                return self._blocked_result(
+                    original_text="",
+                    code="invalid_message_type",
+                    category=Category.INPUT_VALIDATION,
+                    reason="each message must be a string or role/content mapping",
+                )
+
+            if not content.strip():
+                return self._blocked_result(
+                    original_text="",
+                    code="empty_message_content",
+                    category=Category.INPUT_VALIDATION,
+                    reason="message content must not be empty",
+                )
+            if len(content) > policy.max_message_chars:
+                return self._blocked_result(
+                    original_text="",
+                    code="message_too_long",
+                    category=Category.RESOURCE_LIMIT,
+                    reason="message exceeds the configured character limit",
+                )
+            if role is None or role in roles:
+                texts.append(content)
+
+        selected = texts[-last_n:]
+        if not selected:
+            return self._blocked_result(
+                original_text="",
+                code="no_scannable_messages",
+                category=Category.INPUT_VALIDATION,
+                reason="no non-empty messages matched the requested roles",
+            )
+        combined_length = sum(len(text) for text in selected) + len(selected) - 1
+        if combined_length > policy.max_combined_message_chars:
+            return self._blocked_result(
+                original_text="",
+                code="combined_messages_too_long",
+                category=Category.RESOURCE_LIMIT,
+                reason="combined messages exceed the configured character limit",
+            )
         # 공백 결합: '\n' 은 일부 패턴의 [^.\n] 클래스에 막혀 재조합이 안 되므로 공백으로 잇는다.
-        return self.check(" ".join(texts[-last_n:]))
+        return self.check(" ".join(selected))
 
 
 def check(text: str, policy: GuardPolicy | None = None) -> GuardResult:

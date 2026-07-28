@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ko-prompt-guard"
-version = "0.2.0"
+version = "1.0.0"
 description = "Deterministic Korean prompt-injection / jailbreak de-obfuscation and guard"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Marker Inc Korea" }]
 keywords = ["korean", "prompt-injection", "jailbreak", "llm", "guardrail", "security", "unicode"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Natural Language :: Korean",
     "Programming Language :: Python :: 3",
@@ -22,7 +22,7 @@ classifiers = [
 # Core is pure-stdlib + pydantic. No ML, no network. (ko-pii unicode_norm is
 # vendored & extended, not imported, to keep this self-contained.)
 dependencies = [
-    "pydantic>=2.0",
+    "pydantic>=2.0,<3",
 ]
 
 [project.urls]
@@ -33,15 +33,15 @@ Changelog = "https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/CHANG
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.4",
-    "mypy>=1.10",
+    "pytest>=8.0,<9",
+    "ruff>=0.4,<1",
+    "mypy>=1.10,<2",
 ]
 # Opt-in: default bge-m3 backend for EmbeddingReviewer (Tier-2 semantic). Core stays
 # pure (pydantic only); torch/transformers are pulled only by the default encoder.
 embedding = [
-    "torch>=2.0",
-    "transformers>=4.40",
+    "torch>=2.0,<3",
+    "transformers>=4.40,<6",
 ]
 
 [tool.setuptools.packages.find]

@@ -6,13 +6,21 @@ false positives here BLOCK real users, defaults are conservative.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .result import Category, Severity
 
 
 class GuardPolicy(BaseModel):
     model_config = ConfigDict(frozen=True)
+
+    # --- resource limits (enforced before normalization or regex evaluation) ---
+    # These bounds keep untrusted request bodies from turning a deterministic scan
+    # into an unbounded CPU or allocation path.
+    max_input_chars: int = Field(default=16_384, ge=1)
+    max_message_count: int = Field(default=32, ge=1)
+    max_message_chars: int = Field(default=4_096, ge=1)
+    max_combined_message_chars: int = Field(default=16_384, ge=1)
 
     # --- de-obfuscation pipeline toggles (Tier-1, pure) ---
     strip_invisible: bool = True       # zero-width / control / direction chars

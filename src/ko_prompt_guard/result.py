@@ -37,6 +37,8 @@ class Category(str, enum.Enum):
     ENCODING = "encoding"                          # P8 base64/hex 페이로드
     OBFUSCATION = "obfuscation"                    # 난독화 자체가 감지됨
     SEMANTIC = "semantic"                          # Tier-2 임베딩/LLM 의미 유사 (opt-in reviewer)
+    INPUT_VALIDATION = "input_validation"          # 형식 오류/비어 있는 멀티턴 입력
+    RESOURCE_LIMIT = "resource_limit"              # 정규화 전 입력 크기 상한 초과
 
 
 class Violation(BaseModel):
@@ -50,6 +52,26 @@ class Violation(BaseModel):
     start: int | None = None
     end: int | None = None
     matched: str | None = None
+
+
+class TelemetryViolation(BaseModel):
+    """Violation fields that are safe to emit to operational telemetry."""
+
+    model_config = ConfigDict(frozen=True)
+
+    code: str
+    category: Category
+    severity: Severity
+
+
+class GuardTelemetry(BaseModel):
+    """A redacted GuardResult view that intentionally contains no input text."""
+
+    model_config = ConfigDict(frozen=True)
+
+    verdict: Verdict
+    violations: tuple[TelemetryViolation, ...] = ()
+    was_obfuscated: bool = False
 
 
 class GuardResult(BaseModel):
@@ -66,7 +88,22 @@ class GuardResult(BaseModel):
 
     @property
     def ok(self) -> bool:
-        return self.verdict is not Verdict.BLOCK
+        return self.verdict is Verdict.ALLOW
+
+    def telemetry(self) -> GuardTelemetry:
+        """Return a redacted result suitable for logs and metrics."""
+        return GuardTelemetry(
+            verdict=self.verdict,
+            violations=tuple(
+                TelemetryViolation(
+                    code=violation.code,
+                    category=violation.category,
+                    severity=violation.severity,
+                )
+                for violation in self.violations
+            ),
+            was_obfuscated=self.was_obfuscated,
+        )
 
 
 class ContextScanResult(BaseModel):
