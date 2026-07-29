@@ -2,9 +2,24 @@
 
 [![CI](https://github.com/Marker-Inc-Korea/ko-prompt-guard/actions/workflows/tests.yml/badge.svg)](https://github.com/Marker-Inc-Korea/ko-prompt-guard/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0b7285)](https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/pyproject.toml)
-[![Status: Production/Stable](https://img.shields.io/badge/status-production%2Fstable-1f6f43)](./CHANGELOG.md)
+[![Software: Stable](https://img.shields.io/badge/software-stable-1f6f43)](./CHANGELOG.md)
 
-> 한국어 프롬프트 인젝션·탈옥을 **LLM 입력 전에** 잡는 결정론(rule-based) 가드 — 한국어 난독을 펴서(de-obfuscate) 공격을 드러낸다.
+> 한국어 난독을 펴서 공격 신호를 드러내는 결정론적 **Tier-1 입력·컨텍스트 가드**.
+> 의미형 프롬프트 인젝션 전체를 단독 판정하는 제품은 아니다.
+
+## 제품 계약
+
+| 항목 | 운영 정의 |
+|---|---|
+| 주 고객 | 한국어 LLM/RAG를 운영하는 AI 플랫폼·보안 팀 |
+| 고객 과업 | 자모·초성·제로폭·전각·혼합문자 난독을 복원하고 명백한 인젝션을 모델 전에 차단 |
+| 보장 범위 | 동일 정책의 결정론 판정, 고신뢰 알려진 패턴, 사용자 입력과 검색 컨텍스트의 분리 검사 |
+| 비보장 범위 | 새로운 의미형 탈옥, 역할극, 장기 멀티턴 공격의 포괄적 탐지 또는 모델 안전 인증 |
+| 운영 조건 | 포괄적 coverage가 필요하면 별도 검증한 Tier-2, tool 권한 정책, output/SQL 통제와 함께 사용 |
+| 상태 해석 | `Software: Stable`은 패키지·API 안정성이다. 고객 트래픽의 효과는 별도 qualification 대상 |
+
+룰 단독의 낮은 recall을 숨기지 않는다. 이 제품의 본래 역할은 **한국어 난독 정규화 +
+고정밀 1차 신호**이며, 광범위한 인젝션 방어를 단독으로 약속하지 않는다.
 
 ```python
 from ko_prompt_guard import Guard
