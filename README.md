@@ -2,7 +2,12 @@
 
 [![CI](https://github.com/Marker-Inc-Korea/ko-prompt-guard/actions/workflows/tests.yml/badge.svg)](https://github.com/Marker-Inc-Korea/ko-prompt-guard/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0b7285)](https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/pyproject.toml)
-[![Software: Stable](https://img.shields.io/badge/software-stable-1f6f43)](./CHANGELOG.md)
+[![Status: Development Preview](https://img.shields.io/badge/status-development_preview-d97706)](./CHANGELOG.md)
+
+> [!IMPORTANT]
+> **공개 단계: Development Preview.** 소스, API와 회귀 테스트는 공개되어 있지만 탐지
+> coverage와 고객 환경 효과는 계속 검증 중입니다. 평가·통합 및 다층 방어의 Tier-1
+> 구성요소로 사용하며, 단독 운영 보안 통제로 간주하지 마세요.
 
 > 한국어 난독을 펴서 공격 신호를 드러내는 결정론적 **Tier-1 입력·컨텍스트 가드**.
 > 의미형 프롬프트 인젝션 전체를 단독 판정하는 제품은 아니다.
@@ -16,7 +21,7 @@
 | 보장 범위 | 동일 정책의 결정론 판정, 고신뢰 알려진 패턴, 사용자 입력과 검색 컨텍스트의 분리 검사 |
 | 비보장 범위 | 새로운 의미형 탈옥, 역할극, 장기 멀티턴 공격의 포괄적 탐지 또는 모델 안전 인증 |
 | 운영 조건 | 포괄적 coverage가 필요하면 별도 검증한 Tier-2, tool 권한 정책, output/SQL 통제와 함께 사용 |
-| 상태 해석 | `Software: Stable`은 패키지·API 안정성이다. 고객 트래픽의 효과는 별도 qualification 대상 |
+| 상태 해석 | `Development Preview`는 공개 개발·검증 단계다. 고객 트래픽 적용은 별도 qualification 대상 |
 
 룰 단독의 낮은 recall을 숨기지 않는다. 이 제품의 본래 역할은 **한국어 난독 정규화 +
 고정밀 1차 신호**이며, 광범위한 인젝션 방어를 단독으로 약속하지 않는다.
@@ -491,11 +496,12 @@ QUARANTINE**(격리) 시맨틱이고, FLAG 수준 약신호도 격리 대상으�
 
 ---
 
-## 운영 배포
+## 통합·배포 검증
 
 인증·요청 상한·정책 digest·raw 비저장 감사·readiness canary와 비루트 컨테이너 사용법은
 [`DEPLOYMENT.md`](./DEPLOYMENT.md)에 정리했다. 선택 ML reviewer는 inline 프로세스에 암묵적으로
-로드하지 않고 별도 GPU 서비스 증거를 요구한다.
+로드하지 않고 별도 GPU 서비스 증거를 요구한다. 이 절차는 Preview 구성요소의 검증 방법이며
+일반 운영 적합성을 보증하지 않는다.
 
 ---
 
