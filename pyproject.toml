@@ -38,7 +38,7 @@ Changelog = "https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/CHANG
 dev = [
     "pytest>=8.0,<9",
     "ruff>=0.4,<1",
-    "mypy>=1.10,<2",
+    "mypy>=1.10,<3",
 ]
 # Opt-in: default bge-m3 backend for EmbeddingReviewer (Tier-2 semantic). Core stays
 # pure (pydantic only); torch/transformers are pulled only by the default encoder.
