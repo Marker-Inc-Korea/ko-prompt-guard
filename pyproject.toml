@@ -36,7 +36,7 @@ Changelog = "https://github.com/Marker-Inc-Korea/ko-prompt-guard/blob/main/CHANG
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0,<9",
+    "pytest>=8.0,<10",
     "ruff>=0.4,<1",
     "mypy>=1.10,<2",
 ]
