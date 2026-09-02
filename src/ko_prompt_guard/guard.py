@@ -193,6 +193,27 @@ class Guard:
         (해당 콘텐츠를 신뢰/주입하지 말 것). 검색 콘텐츠의 인젝션 패턴은 FLAG 수준 약신호라도
         격리 대상이므로 FLAG/BLOCK 을 모두 ``poisoned`` 로 본다.
         """
+        if not isinstance(content, str):
+            raise TypeError(f"scan_context() expects str, got {type(content).__name__}")
+        if not isinstance(source, str) or not source.strip() or len(source) > 128:
+            raise ValueError("source must be a non-empty label of at most 128 characters")
+        if len(content) > self.policy.max_input_chars:
+            return ContextScanResult(
+                poisoned=True,
+                source=source,
+                recommendation="quarantine",
+                normalized_text="",
+                violations=(
+                    Violation(
+                        code="context_too_long",
+                        category=Category.RESOURCE_LIMIT,
+                        severity=Severity.HIGH,
+                        reason="context exceeds the configured character limit",
+                    ),
+                ),
+                was_obfuscated=False,
+            )
+
         # 입력용 FP 게이트를 끄고 수집 — 검색문서/도구출력에선 '번역/디코딩 방법' 프레이밍이
         # 곧 간접 인젝션 은닉 표면이라, 룰이 이미 탐지한 명시 override 가 격리에서 새지 않게 한다.
         violations, normalized, changed = self._collect(content, apply_input_fp_gates=False)

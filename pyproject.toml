@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ko-prompt-guard"
-version = "1.0.0"
+version = "1.1.0"
 description = "Deterministic Korean prompt-injection / jailbreak de-obfuscation and guard"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,6 +24,9 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0,<3",
 ]
+
+[project.scripts]
+ko-prompt-guard = "ko_prompt_guard.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Marker-Inc-Korea/ko-prompt-guard"

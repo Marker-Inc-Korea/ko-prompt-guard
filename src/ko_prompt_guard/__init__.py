@@ -39,21 +39,33 @@ from .reviewers import (
     make_roberta_classifier,
 )
 from .semantic import SemanticReviewer
+from .session import (
+    ConversationGuardSession,
+    PromptStreamSession,
+    PromptStreamStatus,
+    StreamSessionClosed,
+    StreamSessionLimitExceeded,
+)
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "Category",
     "ClassifierReviewer",
     "ContextScanResult",
+    "ConversationGuardSession",
     "EmbeddingReviewer",
     "Guard",
     "GuardBlocked",
     "GuardPolicy",
     "GuardResult",
     "GuardTelemetry",
+    "PromptStreamSession",
+    "PromptStreamStatus",
     "SemanticReviewer",
     "Severity",
+    "StreamSessionClosed",
+    "StreamSessionLimitExceeded",
     "TelemetryViolation",
     "Verdict",
     "Violation",

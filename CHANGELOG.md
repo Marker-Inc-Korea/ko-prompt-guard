@@ -4,6 +4,19 @@
 
 ## Unreleased
 
+## 1.1.0 - 2026-09-02
+
+### Added
+
+- 분할된 입력을 먼저 전달하지 않고 완성한 뒤 검사하는 bounded `PromptStreamSession`을
+  추가했습니다.
+- 최근 대화의 관련 role을 하나의 공격 표면으로 유지하는 `ConversationGuardSession`을
+  추가했습니다.
+- 기본 출력에서 원문을 제외하고 check/context/messages를 제공하는 `ko-prompt-guard` CLI를
+  추가했습니다.
+- 간접 프롬프트 문서도 정규화 전에 입력 크기를 제한하고, 초과 시 원문을 보존하지 않은 채
+  격리하도록 `scan_context()`의 fail-closed 경계를 보강했습니다.
+
 ### Documentation
 
 - 공개 단계를 `Development Preview`로 재분류하고 PyPI maturity를 Beta로 맞췄습니다.
